@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% load rwb %}
+{% block title %}Pontos{% endblock %}
+{% block content %}
+<a href="{% url 'accounts:profile' %}" class="text-sm text-muted inline-flex items-center gap-1 mb-3">{% include "icons/chevron-left.svg" with cls="w-4 h-4" %} Perfil</a>
+<h1 class="text-4xl font-semibold">Pontos</h1>
+<div class="card card-pad mt-5 flex items-center justify-between">
+  <div><p class="stat-label">Saldo total</p><p class="stat-value mt-2 text-accent !text-4xl">{{ stats.points|num }}</p></div>
+  <div class="text-right"><p class="stat-label">Este mês</p><p class="stat-value mt-2">+{{ stats.month_points|num }}</p></div>
+</div>
+<div class="card card-pad mt-3 text-sm text-muted space-y-1">
+  <p class="text-fg font-medium mb-1">Como ganhar pontos</p>
+  <p>• {{ points_per_km }} pontos por cada km registado</p>
+  <p>• Bónus de {{ streak_bonus }} pontos a cada {{ streak_every }} dias seguidos a correr</p>
+  <p>• {{ checkin_points }} pontos por presença confirmada num evento</p>
+</div>
+<div class="card divider mt-5">
+  {% for t in page %}
+    <div class="flex items-center gap-3 px-4 py-3">
+      <span class="w-9 h-9 rounded-full grid place-items-center flex-none {% if t.reason == 'streak_bonus' %}bg-brand-tint text-accent{% else %}bg-surface2 text-muted{% endif %}">
+        {% if t.reason == 'run' %}{% include "icons/route.svg" with cls="w-4 h-4" %}{% elif t.reason == 'streak_bonus' %}{% include "icons/flame.svg" with cls="w-4 h-4" %}{% elif t.reason == 'event_checkin' %}{% include "icons/flag.svg" with cls="w-4 h-4" %}{% else %}{% include "icons/star.svg" with cls="w-4 h-4" %}{% endif %}
+      </span>
+      <div class="flex-1 min-w-0">
+        <p class="font-medium truncate">{{ t.get_reason_display }}</p>
+        <p class="text-xs text-muted truncate">{{ t.description }} · {{ t.created_at|date:"j M Y" }}</p>
+      </div>
+      <span class="font-display text-lg tabular {% if t.amount > 0 %}text-accent{% else %}text-danger{% endif %}">{% if t.amount > 0 %}+{% endif %}{{ t.amount }}</span>
+    </div>
+  {% empty %}
+    <p class="px-4 py-8 text-center text-muted">Sem movimentos ainda.</p>
+  {% endfor %}
+</div>
+{% include "partials/pagination.html" %}
+{% endblock %}

@@ -1,0 +1,17 @@
+{% extends "accounts/_auth_shell.html" %}
+{% block title %}Entrar{% endblock %}
+{% block eyebrow %}Bem-vindo de volta{% endblock %}
+{% block heading %}Entrar{% endblock %}
+{% block lead %}Acede ao teu dashboard, cartão de membro e eventos.{% endblock %}
+{% block form %}
+<form method="post" class="space-y-4" novalidate>
+  {% csrf_token %}
+  {% include "partials/form_errors.html" %}
+  {% include "partials/field.html" with field=form.username %}
+  {% include "partials/field.html" with field=form.password %}
+  <input type="hidden" name="next" value="{{ next }}">
+  <div class="flex justify-end -mt-1"><a href="{% url 'accounts:password_reset' %}" class="text-sm text-muted hover:text-fg">Esqueci-me da palavra-passe</a></div>
+  <button type="submit" class="btn btn-primary btn-block">Entrar</button>
+</form>
+<p class="text-center text-sm text-muted mt-6">Ainda não és membro? <a href="{% url 'accounts:register' %}" class="text-accent font-semibold">Regista-te</a></p>
+{% endblock %}

@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% load rwb static %}
+{% block title %}Carrinho{% endblock %}
+{% block content %}
+<a href="{% url 'shop:list' %}" class="text-sm text-muted inline-flex items-center gap-1 mb-3">{% include "icons/chevron-left.svg" with cls="w-4 h-4" %} Continuar a comprar</a>
+<h1 class="text-4xl font-semibold mb-5">Carrinho</h1>
+{% if summary.lines %}
+  <form method="post" class="space-y-4" data-cart-form>
+    {% csrf_token %}
+    <div class="card divider">
+      {% for line in summary.lines %}
+        <div class="flex gap-3 p-3">
+          <a href="{{ line.product.get_absolute_url }}" class="product-media !w-20 !h-20 flex-none">
+            {% with img=line.product.main_image %}{% if img %}<img src="{{ img.image.url }}" alt="">{% else %}<div class="product-placeholder !p-2"><img src="{% static 'img/brand/logo-yellow.png' %}" alt="" class="!h-auto !object-contain"></div>{% endif %}{% endwith %}
+          </a>
+          <div class="flex-1 min-w-0">
+            <p class="font-semibold truncate">{{ line.product.name }}</p>
+            <p class="text-xs text-muted">{{ line.variant.name }} · {{ line.unit_price|mzn }}{% if line.unit_price != line.list_price %} <span class="price-old">{{ line.list_price|mzn }}</span>{% endif %}</p>
+            {% if line.short %}<p class="text-xs text-danger mt-1">Só há {{ line.available }} em stock — ajusta a quantidade.</p>{% endif %}
+            <div class="flex items-center justify-between mt-2">
+              <div class="qty" data-qty>
+                <button type="button" data-qty-step="-1" aria-label="Menos">{% include "icons/minus.svg" with cls="w-4 h-4" %}</button>
+                <input type="number" name="qty_{{ line.variant.pk }}" value="{{ line.quantity }}" min="0" max="{{ max_qty }}" inputmode="numeric" aria-label="Quantidade" data-autosubmit>
+                <button type="button" data-qty-step="1" aria-label="Mais">{% include "icons/plus.svg" with cls="w-4 h-4" %}</button>
+              </div>
+              <span class="price tabular">{{ line.line_total|mzn }}</span>
+            </div>
+          </div>
+          <button type="submit" name="remove" value="{{ line.variant.pk }}" class="self-start p-1.5 text-muted hover:text-danger" aria-label="Remover">{% include "icons/trash.svg" with cls="w-4 h-4" %}</button>
+        </div>
+      {% endfor %}
+    </div>
+    <noscript><button class="btn btn-ghost btn-sm">Actualizar quantidades</button></noscript>
+  </form>
+  <div class="card card-pad mt-4">
+    {% include "shop/_summary.html" %}
+    <p class="text-xs text-muted mt-2">Levantamento em evento é grátis. A taxa de entrega ao domicílio é calculada no checkout.</p>
+    {% if summary.has_shortage %}
+      <button class="btn btn-primary btn-block mt-4" disabled>Ajusta as quantidades para continuar</button>
+    {% else %}
+      <a href="{% url 'shop:checkout' %}" class="btn btn-primary btn-block mt-4">Finalizar encomenda</a>
+    {% endif %}
+  </div>
+{% else %}
+  <div class="card card-pad text-center py-12">
+    <div class="mx-auto w-12 h-12 rounded-full bg-surface2 grid place-items-center text-muted mb-3">{% include "icons/bag.svg" %}</div>
+    <p class="font-medium">O carrinho está vazio</p>
+    <a href="{% url 'shop:list' %}" class="btn btn-primary mt-5">Ver a loja</a>
+  </div>
+{% endif %}
+{% endblock %}

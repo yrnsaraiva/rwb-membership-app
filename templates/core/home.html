@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+{% load rwb static %}
+{% block title %}Clube de corrida em Maputo{% endblock %}
+{% block content %}
+<section class="hero px-5 pt-10 pb-8 sm:px-10 sm:pt-14">
+  <img src="{% static 'img/brand/logo-yellow.png' %}" alt="RunWithBroto Running Club" class="h-14 sm:h-16 w-auto mb-8" width="600" height="239">
+  <p class="eyebrow mb-4">Clube de corrida · Maputo</p>
+  <h1 class="hero-title">Corre<br>com a <span class="text-accent">família</span>.</h1>
+  <p class="mt-5 max-w-md text-soft text-base sm:text-lg leading-relaxed">
+    Eventos semanais, o teu cartão de membro no bolso, pontos por cada quilómetro e um ranking que te faz voltar amanhã.
+  </p>
+  <div class="mt-7 flex flex-col sm:flex-row gap-3">
+    <a href="{% url 'accounts:register' %}" class="btn btn-primary">Tornar-me membro — é grátis</a>
+    <a href="{% url 'events:list' %}" class="btn btn-ghost">Ver próximos eventos</a>
+  </div>
+  <div class="mt-10 grid grid-cols-3 gap-3 max-w-md">
+    <div><p class="stat-value">{% include "icons/calendar.svg" with cls="w-5 h-5 text-accent mb-2" %}</p><p class="text-sm text-muted">Inscrição em eventos num toque</p></div>
+    <div><p class="stat-value">{% include "icons/flame.svg" with cls="w-5 h-5 text-accent mb-2" %}</p><p class="text-sm text-muted">Pontos e streaks por cada corrida</p></div>
+    <div><p class="stat-value">{% include "icons/qr.svg" with cls="w-5 h-5 text-accent mb-2" %}</p><p class="text-sm text-muted">Cartão digital com QR code</p></div>
+  </div>
+</section>
+
+<section class="mt-10">
+  <div class="flex items-end justify-between mb-4">
+    <h2 class="text-2xl font-semibold">Próximos eventos</h2>
+    <a href="{% url 'events:list' %}" class="text-sm text-muted hover:text-fg">Ver todos →</a>
+  </div>
+  <div class="space-y-3">
+    {% for event in events %}
+      {% include "partials/event_card.html" with event=event %}
+    {% empty %}
+      <div class="card card-pad text-muted text-sm">Novos eventos em breve. Fica atento!</div>
+    {% endfor %}
+  </div>
+</section>
+
+{% if top %}
+<section class="mt-10">
+  <div class="flex items-end justify-between mb-4">
+    <h2 class="text-2xl font-semibold">Quem mais correu este mês</h2>
+    <a href="{% url 'leaderboard:index' %}?metrica=km" class="text-sm text-muted hover:text-fg">Ranking →</a>
+  </div>
+  <div class="card divider">
+    {% for row in top %}
+      <div class="flex items-center gap-3 px-4 py-3">
+        <span class="rank-badge {% if row.rank == 1 %}text-accent{% endif %}">{{ row.rank }}</span>
+        <span class="avatar w-9 h-9 text-xs">{% if row.avatar_url %}<img src="{{ row.avatar_url }}" alt="">{% else %}{{ row.initials }}{% endif %}</span>
+        <span class="flex-1 font-medium truncate">{{ row.name }}</span>
+        <span class="font-display text-lg tabular">{{ row.score|km }} <span class="text-xs text-muted font-sans normal-case">km</span></span>
+      </div>
+    {% endfor %}
+  </div>
+</section>
+{% endif %}
+
+<section class="mt-10">
+  <a href="{% url 'shop:list' %}" class="card card-link flex items-center gap-4 p-4 sm:p-5">
+    <span class="w-12 h-12 rounded-2xl grid place-items-center bg-brand text-brand-ink flex-none">{% include "icons/bag.svg" with cls="w-6 h-6" %}</span>
+    <span class="flex-1 min-w-0"><span class="font-display text-xl font-semibold uppercase block">Loja oficial RWB</span><span class="text-sm text-muted">T-shirts, bonés e acessórios do clube. Levanta num evento.</span></span>
+    {% include "icons/chevron-right.svg" with cls="w-5 h-5 text-muted" %}
+  </a>
+</section>
+
+<section class="mt-10 card card-pad sm:p-8 text-center">
+  <div class="stripe rounded-full mb-6 mx-auto max-w-[120px]"></div>
+  <h2 class="text-3xl font-semibold">Instala a app</h2>
+  <p class="text-muted mt-2 max-w-sm mx-auto text-sm">No telemóvel, abre o menu do navegador e escolhe <strong class="text-fg">“Adicionar ao ecrã principal”</strong>. Sem lojas, sem downloads pesados.</p>
+  <button type="button" class="btn btn-primary mt-5 hidden" data-install>Instalar RWB</button>
+</section>
+{% endblock %}

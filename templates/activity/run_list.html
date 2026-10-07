@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% load rwb %}
+{% block title %}Histórico de corridas{% endblock %}
+{% block content %}
+<a href="{% url 'accounts:profile' %}" class="text-sm text-muted inline-flex items-center gap-1 mb-3">{% include "icons/chevron-left.svg" with cls="w-4 h-4" %} Perfil</a>
+<div class="flex items-end justify-between mb-5 gap-3">
+  <h1 class="text-4xl font-semibold">Corridas</h1>
+  <a href="{% url 'activity:run_create' %}" class="btn btn-primary btn-sm">{% include "icons/plus.svg" with cls="w-4 h-4" %} Nova</a>
+</div>
+<div class="grid grid-cols-3 gap-3 mb-5">
+  <div class="card card-pad"><p class="stat-label">Total</p><p class="stat-value mt-2 !text-2xl">{{ stats.total_km|km }}<span class="stat-unit">km</span></p></div>
+  <div class="card card-pad"><p class="stat-label">Tempo</p><p class="stat-value mt-2 !text-2xl">{{ stats.total_time_display }}</p></div>
+  <div class="card card-pad"><p class="stat-label">Ritmo</p><p class="stat-value mt-2 !text-2xl">{{ stats.avg_pace_display }}</p></div>
+</div>
+{% if page.object_list %}
+  <div class="card divider">
+    {% for run in page %}{% include "activity/_run_row.html" with can_delete=True %}{% endfor %}
+  </div>
+  {% include "partials/pagination.html" %}
+{% else %}
+  <div class="card card-pad text-center py-10 text-muted">Ainda não registaste corridas.</div>
+{% endif %}
+{% endblock %}

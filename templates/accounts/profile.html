@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% load rwb %}
+{% block title %}Perfil{% endblock %}
+{% block content %}
+<section class="flex items-center gap-4">
+  {% include "partials/avatar.html" with u=user size="w-20 h-20 text-2xl" %}
+  <div class="min-w-0 flex-1">
+    <p class="eyebrow">{{ user.member_number }}</p>
+    <h1 class="text-3xl font-semibold truncate">{{ user.display_name }}</h1>
+    <div class="flex flex-wrap gap-2 mt-1.5">
+      {% if user.is_premium %}<span class="chip chip-brand">{% include "icons/star.svg" with cls="w-3 h-3" %} Premium</span>{% else %}<span class="chip">Membro</span>{% endif %}
+      <span class="chip">Desde {{ user.member_since|date:"M Y" }}</span>
+    </div>
+  </div>
+</section>
+{% if user.bio %}<p class="text-soft mt-4 text-sm leading-relaxed">{{ user.bio }}</p>{% endif %}
+
+<section class="grid grid-cols-3 gap-3 mt-6">
+  <div class="card card-pad"><p class="stat-label">Total</p><p class="stat-value mt-2">{{ stats.total_km|km }}<span class="stat-unit">km</span></p></div>
+  <div class="card card-pad"><p class="stat-label">Corridas</p><p class="stat-value mt-2">{{ stats.total_runs }}</p></div>
+  <div class="card card-pad"><p class="stat-label">Melhor streak</p><p class="stat-value mt-2">{{ stats.longest_streak }}<span class="stat-unit">dias</span></p></div>
+</section>
+
+<section class="card mt-6 divider">
+  <a href="{% url 'accounts:card' %}" class="flex items-center gap-3 px-4 py-4">{% include "icons/qr.svg" %}<span class="flex-1 font-medium">Cartão de membro</span>{% include "icons/chevron-right.svg" with cls="w-4 h-4 text-muted" %}</a>
+  <a href="{% url 'activity:run_list' %}" class="flex items-center gap-3 px-4 py-4">{% include "icons/route.svg" %}<span class="flex-1 font-medium">Histórico de corridas</span>{% include "icons/chevron-right.svg" with cls="w-4 h-4 text-muted" %}</a>
+  <a href="{% url 'activity:points' %}" class="flex items-center gap-3 px-4 py-4">{% include "icons/bolt.svg" %}<span class="flex-1 font-medium">Pontos <span class="text-muted font-normal">· {{ stats.points|num }}</span></span>{% include "icons/chevron-right.svg" with cls="w-4 h-4 text-muted" %}</a>
+  <a href="{% url 'shop:orders' %}" class="flex items-center gap-3 px-4 py-4">{% include "icons/package.svg" %}<span class="flex-1 font-medium">As minhas encomendas</span>{% include "icons/chevron-right.svg" with cls="w-4 h-4 text-muted" %}</a>
+  <a href="{% url 'shop:list' %}" class="flex items-center gap-3 px-4 py-4">{% include "icons/bag.svg" %}<span class="flex-1 font-medium">Loja RWB</span>{% include "icons/chevron-right.svg" with cls="w-4 h-4 text-muted" %}</a>
+  <a href="{% url 'billing:plans' %}" class="flex items-center gap-3 px-4 py-4">{% include "icons/star.svg" %}<span class="flex-1 font-medium">Premium</span>{% include "icons/chevron-right.svg" with cls="w-4 h-4 text-muted" %}</a>
+  <a href="{% url 'accounts:profile_edit' %}" class="flex items-center gap-3 px-4 py-4">{% include "icons/settings.svg" %}<span class="flex-1 font-medium">Editar perfil</span>{% include "icons/chevron-right.svg" with cls="w-4 h-4 text-muted" %}</a>
+  {% if user.is_staff %}
+  <a href="{% url 'panel:index' %}" class="flex items-center gap-3 px-4 py-4">{% include "icons/shield.svg" %}<span class="flex-1 font-medium">Painel de gestão</span>{% include "icons/chevron-right.svg" with cls="w-4 h-4 text-muted" %}</a>
+  {% endif %}
+</section>
+
+<section class="card card-pad mt-6 text-sm space-y-2">
+  <div class="flex justify-between gap-4"><span class="text-muted">Email</span><span class="truncate">{{ user.email }}</span></div>
+  <div class="flex justify-between gap-4"><span class="text-muted">Telemóvel</span><span>{{ user.phone|default:"—" }}</span></div>
+  <div class="flex justify-between gap-4"><span class="text-muted">Cidade</span><span>{{ user.city|default:"—" }}</span></div>
+  <div class="flex justify-between gap-4"><span class="text-muted">No ranking</span><span>{% if user.show_on_leaderboard %}Visível{% else %}Oculto{% endif %}</span></div>
+</section>
+
+<section class="card card-pad mt-6">
+  <p class="stat-label mb-3">Aparência</p>
+  <div class="tabs" role="group" aria-label="Tema">
+    <button type="button" class="tab" data-theme-set="auto">Automático</button>
+    <button type="button" class="tab" data-theme-set="light">Claro</button>
+    <button type="button" class="tab" data-theme-set="dark">Escuro</button>
+  </div>
+</section>
+
+<form method="post" action="{% url 'accounts:logout' %}" class="mt-6" data-logout>
+  {% csrf_token %}
+  <button type="submit" class="btn btn-ghost btn-block">{% include "icons/logout.svg" with cls="w-4 h-4" %} Terminar sessão</button>
+</form>
+{% endblock %}

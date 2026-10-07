@@ -1,0 +1,43 @@
+{% extends "panel/_base.html" %}
+{% load rwb %}
+{% block title %}Moderação · Painel{% endblock %}
+{% block panel %}
+<h1 class="text-3xl font-semibold mb-1">Moderação de corridas</h1>
+<p class="text-sm text-muted mb-4">Corridas suspeitas: ritmo abaixo de 3:30/km ou distância acima de 42,2 km. Invalidar uma corrida remove os seus pontos do ranking.</p>
+<div class="tabs mb-4 max-w-md">
+  <a href="?filtro=suspeitas" class="tab {% if filtro == 'suspeitas' %}is-active{% endif %}">Suspeitas</a>
+  <a href="?filtro=todas" class="tab {% if filtro == 'todas' %}is-active{% endif %}">Todas</a>
+  <a href="?filtro=invalidas" class="tab {% if filtro == 'invalidas' %}is-active{% endif %}">Invalidadas</a>
+</div>
+<div class="card table-wrap">
+  <table class="table">
+    <thead><tr><th>Membro</th><th>Data</th><th>Distância</th><th>Tempo</th><th>Ritmo</th><th class="text-right">Acção</th></tr></thead>
+    <tbody>
+      {% for run in page %}
+        <tr class="{% if not run.is_valid %}opacity-60{% endif %}">
+          <td><a href="{% url 'panel:member_detail' run.user_id %}" class="font-medium">{{ run.user.display_name }}</a>{% if run.moderation_note %}<p class="text-xs text-danger">{{ run.moderation_note }}</p>{% endif %}</td>
+          <td class="tabular whitespace-nowrap">{{ run.date|date:"d/m/Y" }}</td>
+          <td class="tabular">{{ run.distance_km|km:2 }} km</td>
+          <td class="tabular">{{ run.duration|duration }}</td>
+          <td class="tabular {% if run.pace_seconds and run.pace_seconds < 210 %}text-danger{% endif %}">{{ run.pace_seconds|pace }}/km</td>
+          <td class="text-right">
+            <form method="post" action="{% url 'panel:run_toggle_valid' run.pk %}" class="flex gap-2 justify-end">
+              {% csrf_token %}
+              <input type="hidden" name="next" value="{{ request.get_full_path }}">
+              {% if run.is_valid %}
+                <input name="note" class="input !min-h-[34px] !py-1 !text-sm w-40 hidden md:block" placeholder="Motivo (opcional)">
+                <button class="btn btn-danger btn-sm">Invalidar</button>
+              {% else %}
+                <button class="btn btn-ghost btn-sm">Revalidar</button>
+              {% endif %}
+            </form>
+          </td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="6" class="text-center text-muted py-8">Nada para moderar. 👌</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% include "partials/pagination.html" %}
+{% endblock %}

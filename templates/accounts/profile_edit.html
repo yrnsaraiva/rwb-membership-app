@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block title %}Editar perfil{% endblock %}
+{% block content %}
+<a href="{% url 'accounts:profile' %}" class="text-sm text-muted inline-flex items-center gap-1 mb-3">{% include "icons/chevron-left.svg" with cls="w-4 h-4" %} Perfil</a>
+<h1 class="text-3xl font-semibold mb-6">Editar perfil</h1>
+<form method="post" enctype="multipart/form-data" class="space-y-4" novalidate>
+  {% csrf_token %}
+  {% include "partials/form_errors.html" %}
+  <div class="card card-pad flex items-center gap-4">
+    {% include "partials/avatar.html" with u=user size="w-16 h-16 text-xl" %}
+    <div class="flex-1 min-w-0">{% include "partials/field.html" with field=form.avatar %}</div>
+  </div>
+  <div class="grid grid-cols-2 gap-3">
+    {% include "partials/field.html" with field=form.first_name %}
+    {% include "partials/field.html" with field=form.last_name %}
+  </div>
+  {% include "partials/field.html" with field=form.phone %}
+  <div class="grid grid-cols-2 gap-3">
+    {% include "partials/field.html" with field=form.city %}
+    {% include "partials/field.html" with field=form.date_of_birth %}
+  </div>
+  {% include "partials/field.html" with field=form.bio %}
+  {% include "partials/field.html" with field=form.show_on_leaderboard %}
+  <div class="flex gap-3 pt-2">
+    <a href="{% url 'accounts:profile' %}" class="btn btn-ghost flex-1">Cancelar</a>
+    <button type="submit" class="btn btn-primary flex-1">Guardar</button>
+  </div>
+</form>
+{% endblock %}

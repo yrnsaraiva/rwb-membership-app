@@ -1,0 +1,20 @@
+{% autoescape off %}Olá {{ user.first_name }},
+
+Recebemos a tua encomenda {{ order.number }}:
+{% for i in order.items.all %}- {{ i.quantity }}× {{ i.product_name }} ({{ i.variant_name }}) — {{ i.line_total|floatformat:0 }} MZN
+{% endfor %}{% if order.discount_mzn %}Desconto premium: −{{ order.discount_mzn|floatformat:0 }} MZN
+{% endif %}{% if order.delivery_fee_mzn %}Entrega: {{ order.delivery_fee_mzn|floatformat:0 }} MZN
+{% endif %}TOTAL: {{ order.total_mzn|floatformat:0 }} MZN
+
+COMO PAGAR (referência: {{ order.number }})
+{% if payment.mpesa_number %}M-Pesa: {{ payment.mpesa_number }} ({{ payment.mpesa_name }})
+{% endif %}{% if payment.bank_details %}Transferência: {{ payment.bank_details }}
+{% endif %}{% if not payment.mpesa_number and not payment.bank_details %}O clube vai contactar-te para combinar o pagamento.
+{% endif %}Guardamos o stock durante {{ payment.hold_days }} dias.
+
+Entrega: {{ order.get_fulfilment_display }}{% if order.pickup_event %} — {{ order.pickup_event.title }}, {{ order.pickup_event.starts_at|date:"j \d\e F, H:i" }}{% endif %}
+
+Acompanha a encomenda: {{ site_url }}{{ order.get_absolute_url }}
+
+Obrigado por vestires as cores do clube!
+Equipa RWB{% endautoescape %}

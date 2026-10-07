@@ -1,0 +1,8 @@
+{% extends "emails/_layout.html" %}
+{% block body %}
+<h1 style="font-family:Oswald,Arial Narrow,Arial,sans-serif;text-transform:uppercase;color:#fff;font-size:26px;margin:0 0 12px;">Bem-vindo, {{ user.first_name }}!</h1>
+<p>Já fazes parte do clube. O teu número de sócio é <strong style="color:#FABB00;">{{ user.member_number }}</strong>.</p>
+<p>Mostra o teu cartão digital (QR code) à entrada dos eventos para registar presença e ganhar pontos.</p>
+<p style="margin:24px 0;"><a href="{{ site_url }}{% url 'accounts:card' %}" style="background:#FABB00;color:#0B0B0B;padding:12px 20px;border-radius:999px;text-decoration:none;font-weight:600;">Ver o meu cartão</a></p>
+<p style="color:#9a9aa2;font-size:13px;">Dica: adiciona a app ao ecrã principal do telemóvel para a teres sempre à mão.</p>
+{% endblock %}

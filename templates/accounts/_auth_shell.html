@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="max-w-md mx-auto pt-4 sm:pt-10">
+  <p class="eyebrow mb-2">{% block eyebrow %}{% endblock %}</p>
+  <h1 class="text-4xl font-semibold mb-2">{% block heading %}{% endblock %}</h1>
+  <p class="text-muted mb-7">{% block lead %}{% endblock %}</p>
+  {% block form %}{% endblock %}
+</div>
+{% endblock %}

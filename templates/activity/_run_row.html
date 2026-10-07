@@ -1,0 +1,19 @@
+{% load rwb %}
+<div class="flex items-center gap-3 px-4 py-3 {% if not run.is_valid %}opacity-50{% endif %}">
+  <div class="w-10 h-10 rounded-xl bg-surface2 grid place-items-center text-muted flex-none">{% include "icons/route.svg" with cls="w-5 h-5" %}</div>
+  <div class="flex-1 min-w-0">
+    <p class="font-medium truncate">{{ run.title|default:"Corrida" }}{% if run.event %} <span class="text-muted font-normal">· {{ run.event.title }}</span>{% endif %}</p>
+    <p class="text-xs text-muted tabular">{{ run.date|date:"D, j M" }} · {{ run.duration|duration }} · {{ run.pace_seconds|pace }}/km</p>
+    {% if not run.is_valid %}<p class="text-xs text-danger mt-0.5">Invalidada pela moderação{% if run.moderation_note %}: {{ run.moderation_note }}{% endif %}</p>{% endif %}
+  </div>
+  <div class="text-right flex-none">
+    <p class="font-display text-xl font-semibold tabular">{{ run.distance_km|km:2 }}<span class="text-xs text-muted font-sans normal-case ml-0.5">km</span></p>
+    {% if run.is_valid %}<p class="text-xs text-accent tabular">+{{ run.points }} pts</p>{% endif %}
+  </div>
+  {% if can_delete %}
+    <form method="post" action="{% url 'activity:run_delete' run.pk %}" data-confirm="Apagar esta corrida? Os pontos serão removidos.">
+      {% csrf_token %}
+      <button class="p-2 text-muted hover:text-danger" aria-label="Apagar corrida">{% include "icons/trash.svg" with cls="w-4 h-4" %}</button>
+    </form>
+  {% endif %}
+</div>

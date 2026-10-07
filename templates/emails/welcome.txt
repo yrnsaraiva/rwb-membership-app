@@ -1,0 +1,11 @@
+{% autoescape off %}Olá {{ user.first_name }},
+
+Bem-vindo ao RunWithBroto! O teu número de sócio é {{ user.member_number }}.
+
+O teu cartão de membro digital: {{ site_url }}{% url 'accounts:card' %}
+Próximos eventos: {{ site_url }}{% url 'events:list' %}
+
+Dica: adiciona a app ao ecrã principal do telemóvel para teres o cartão sempre à mão.
+
+Até à próxima corrida!
+Equipa RWB{% endautoescape %}

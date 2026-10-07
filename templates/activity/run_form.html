@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block title %}Registar corrida{% endblock %}
+{% block content %}
+<a href="{% url 'activity:dashboard' %}" class="text-sm text-muted inline-flex items-center gap-1 mb-3">{% include "icons/chevron-left.svg" with cls="w-4 h-4" %} Início</a>
+<h1 class="text-4xl font-semibold">Nova corrida</h1>
+<p class="text-muted mt-1 mb-6">Regista a distância e o tempo — nós calculamos o ritmo e os pontos.</p>
+
+<form method="post" class="space-y-4" novalidate data-run-form>
+  {% csrf_token %}
+  {% include "partials/form_errors.html" %}
+
+  <div class="card card-pad space-y-4">
+    {% include "partials/field.html" with field=form.distance_km %}
+    <div class="field {% if form.hours.errors or form.minutes.errors or form.seconds.errors %}has-error{% endif %}">
+      <span class="label">Duração<span class="text-accent"> *</span></span>
+      <div class="grid grid-cols-3 gap-2">
+        <label class="relative">{{ form.hours }}<span class="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted pointer-events-none">h</span></label>
+        <label class="relative">{{ form.minutes }}<span class="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted pointer-events-none">min</span></label>
+        <label class="relative">{{ form.seconds }}<span class="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted pointer-events-none">s</span></label>
+      </div>
+      {{ form.hours.errors }}{{ form.minutes.errors }}{{ form.seconds.errors }}
+    </div>
+    <div class="grid grid-cols-2 gap-3 pt-1">
+      <div class="rounded-xl bg-surface2 border border-line px-3 py-2.5">
+        <p class="stat-label !text-[0.62rem]">Ritmo</p>
+        <p class="font-display text-2xl font-semibold tabular" data-pace>—</p>
+      </div>
+      <div class="rounded-xl bg-surface2 border border-line px-3 py-2.5">
+        <p class="stat-label !text-[0.62rem]">Pontos</p>
+        <p class="font-display text-2xl font-semibold text-accent tabular" data-points data-per-km="{{ points_per_km }}">—</p>
+      </div>
+    </div>
+  </div>
+
+  {% include "partials/field.html" with field=form.date %}
+  {% include "partials/field.html" with field=form.title %}
+  {% if form.event.field.queryset.exists %}{% include "partials/field.html" with field=form.event %}{% endif %}
+  {% include "partials/field.html" with field=form.notes %}
+
+  <button type="submit" class="btn btn-primary btn-block">Guardar corrida</button>
+</form>
+{% endblock %}

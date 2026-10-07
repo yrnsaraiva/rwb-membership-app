@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% load rwb %}
+{% block title %}Premium{% endblock %}
+{% block content %}
+<p class="eyebrow">Apoia o clube</p>
+<h1 class="text-4xl font-semibold">RWB Premium</h1>
+<p class="text-muted mt-2 mb-6">Acesso a eventos exclusivos, descontos em provas parceiras e mais. O pagamento é feito directamente ao clube — confirmamos e activamos a tua conta.</p>
+
+{% if current %}
+  <div class="card card-pad mb-5 border-brand">
+    <div class="flex items-center gap-3">
+      <span class="w-10 h-10 rounded-full grid place-items-center bg-brand-tint text-accent">{% include "icons/star.svg" %}</span>
+      <div class="flex-1">
+        <p class="font-semibold">És membro premium · {{ current.plan.name }}</p>
+        <p class="text-sm text-muted">Válido até {{ current.ends_at|date:"j \d\e F \d\e Y" }}{% if current.days_left is not None %} ({{ current.days_left }} dia{{ current.days_left|pluralize }}){% endif %}</p>
+      </div>
+    </div>
+  </div>
+{% endif %}
+
+{% if pending %}
+  <div class="card card-pad mb-5 border-brand">
+    <p class="font-semibold">Pedido pendente · {{ pending.plan.name }} ({{ pending.amount_mzn|mzn }})</p>
+    <p class="text-sm text-muted mt-1">Faz o pagamento ao clube (M-Pesa, transferência ou numerário) indicando o teu nº de sócio <strong class="text-fg">{{ user.member_number }}</strong>. Activamos a subscrição logo que confirmarmos.</p>
+    <form method="post" action="{% url 'billing:cancel_request' pending.pk %}" class="mt-3">{% csrf_token %}<button class="btn btn-ghost btn-sm">Cancelar pedido</button></form>
+  </div>
+{% endif %}
+
+<div class="grid sm:grid-cols-2 gap-3">
+  {% for plan in plans %}
+    <div class="card card-pad flex flex-col {% if plan.is_featured %}podium-1{% endif %}">
+      <div class="flex items-center justify-between">
+        <h2 class="text-2xl font-semibold">{{ plan.name }}</h2>
+        {% if plan.is_featured %}<span class="chip chip-brand">Melhor valor</span>{% endif %}
+      </div>
+      <p class="mt-3"><span class="font-display text-4xl font-semibold">{{ plan.price_mzn|mzn }}</span></p>
+      <p class="text-sm text-muted">{% if plan.duration_days >= 365 %}por ano{% elif plan.duration_days >= 28 and plan.duration_days <= 31 %}por mês{% else %}por {{ plan.duration_days }} dias{% endif %}</p>
+      {% if plan.description %}<p class="text-sm mt-3 text-soft">{{ plan.description }}</p>{% endif %}
+      <ul class="mt-4 space-y-2 text-sm flex-1">
+        {% for b in plan.benefit_list %}<li class="flex gap-2">{% include "icons/check.svg" with cls="w-4 h-4 text-accent flex-none mt-0.5" %}<span>{{ b }}</span></li>{% endfor %}
+      </ul>
+      {% if user.is_authenticated %}
+        <form method="post" action="{% url 'billing:request' plan.slug %}" class="mt-5">
+          {% csrf_token %}
+          <button class="btn {% if plan.is_featured %}btn-primary{% else %}btn-ghost{% endif %} btn-block" {% if pending %}disabled{% endif %}>{% if current %}Renovar{% else %}Quero este plano{% endif %}</button>
+        </form>
+      {% else %}
+        <a href="{% url 'accounts:register' %}" class="btn btn-ghost btn-block mt-5">Criar conta</a>
+      {% endif %}
+    </div>
+  {% empty %}
+    <div class="card card-pad text-muted sm:col-span-2">Os planos premium ainda não estão disponíveis.</div>
+  {% endfor %}
+</div>
+<p class="text-xs text-muted mt-5 text-center">Pagamento automático por M-Pesa chega numa próxima versão da app.</p>
+
+{% if history %}
+  <h2 class="text-xl font-semibold mt-8 mb-3">Histórico</h2>
+  <div class="card divider text-sm">
+    {% for s in history %}
+      <div class="flex items-center justify-between px-4 py-3 gap-3">
+        <span>{{ s.plan.name }} <span class="text-muted">· {{ s.created_at|date:"j M Y" }}</span></span>
+        <span class="chip {% if s.status == 'active' %}chip-brand{% elif s.status == 'pending' %}chip-warn{% endif %}">{{ s.get_status_display }}</span>
+      </div>
+    {% endfor %}
+  </div>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,16 @@
+{% extends "emails/_layout.html" %}
+{% block body %}
+<p style="color:#FABB00;font-size:12px;letter-spacing:2px;text-transform:uppercase;font-weight:600;margin:0 0 6px;">Inscrição confirmada</p>
+<h1 style="font-family:Oswald,Arial Narrow,Arial,sans-serif;text-transform:uppercase;color:#fff;font-size:26px;margin:0 0 16px;">{{ event.title }}</h1>
+<table role="presentation" cellpadding="0" cellspacing="0" style="width:100%;background:#1c1c1f;border-radius:12px;border:1px solid #2a2a2e;">
+  <tr><td style="padding:14px 16px;border-bottom:1px solid #2a2a2e;"><span style="color:#9a9aa2;font-size:12px;">QUANDO</span><br><strong style="color:#fff;">{{ event.starts_at|date:"l, j \d\e F \à\s H:i" }}</strong></td></tr>
+  <tr><td style="padding:14px 16px;{% if registration.distance %}border-bottom:1px solid #2a2a2e;{% endif %}"><span style="color:#9a9aa2;font-size:12px;">ONDE</span><br><strong style="color:#fff;">{{ event.location }}</strong>{% if event.meeting_point %}<br><span>{{ event.meeting_point }}</span>{% endif %}</td></tr>
+  {% if registration.distance %}<tr><td style="padding:14px 16px;"><span style="color:#9a9aa2;font-size:12px;">DISTÂNCIA</span><br><strong style="color:#fff;">{{ registration.distance }}</strong></td></tr>{% endif %}
+</table>
+<p style="margin-top:18px;">Mostra o teu cartão de membro (QR) à chegada para ganhares <strong style="color:#FABB00;">+{{ event.effective_checkin_points }} pontos</strong>.</p>
+<p style="margin:24px 0;">
+  <a href="{{ site_url }}{{ event.get_absolute_url }}" style="background:#FABB00;color:#0B0B0B;padding:12px 20px;border-radius:999px;text-decoration:none;font-weight:600;">Ver evento</a>
+  &nbsp;<a href="{{ site_url }}{% url 'events:ics' event.slug %}" style="color:#f4f4f5;padding:12px 8px;text-decoration:underline;">Adicionar ao calendário</a>
+</p>
+<p style="color:#9a9aa2;font-size:13px;">Se não puderes ir, cancela na app para libertares a vaga para outro membro.</p>
+{% endblock %}

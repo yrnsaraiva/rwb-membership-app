@@ -1,0 +1,19 @@
+{% load rwb static %}
+<a href="{{ product.get_absolute_url }}" class="card card-link p-2.5 flex flex-col">
+  <div class="product-media">
+    {% with img=product.main_image %}
+      {% if img %}<img src="{{ img.image.url }}" alt="{{ img.alt|default:product.name }}" loading="lazy">
+      {% else %}<div class="product-placeholder"><img src="{% static 'img/brand/logo-yellow.png' %}" alt="" class="!h-auto !object-contain" loading="lazy"></div>{% endif %}
+    {% endwith %}
+    {% if not product.in_stock %}<span class="chip chip-danger absolute left-2 top-2 !bg-surface">Esgotado</span>
+    {% elif product.compare_at_price_mzn %}<span class="chip chip-brand absolute left-2 top-2">Promo</span>{% endif %}
+  </div>
+  <div class="px-1 pt-3 pb-1 flex-1 flex flex-col">
+    <p class="font-semibold leading-snug line-clamp-2">{{ product.name }}</p>
+    {% if product.category %}<p class="text-xs text-muted mt-0.5">{{ product.category.name }}</p>{% endif %}
+    <p class="mt-auto pt-2 flex items-baseline gap-2">
+      <span class="price text-lg">{{ product.price_mzn|mzn }}</span>
+      {% if product.compare_at_price_mzn %}<span class="price-old">{{ product.compare_at_price_mzn|mzn }}</span>{% endif %}
+    </p>
+  </div>
+</a>

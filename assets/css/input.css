@@ -1,0 +1,4 @@
+/* Entrada do Tailwind. Os componentes (botões, cartões, etc.) estão em static/css/components.css. */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;

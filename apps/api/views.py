@@ -1,0 +1,129 @@
+"""API REST v1 — prepara o terreno para uma app móvel nativa (fase 3)."""
+from datetime import timedelta
+
+from django.shortcuts import get_object_or_404
+from django.utils import timezone
+from rest_framework import mixins, permissions, status, viewsets
+from rest_framework.authtoken.views import ObtainAuthToken
+from rest_framework.decorators import action, api_view, permission_classes
+from rest_framework.response import Response
+from rest_framework.throttling import ScopedRateThrottle
+
+from apps.activity import services as activity
+from apps.activity.models import PointTransaction, Run
+from apps.events import services as event_services
+from apps.events.models import Event, Registration
+from apps.leaderboard.services import get_leaderboard
+
+from .serializers import (EventSerializer, MemberSerializer, PointTransactionSerializer, RegistrationSerializer,
+                          RunSerializer)
+
+
+class TokenView(ObtainAuthToken):
+    """POST {username: email, password} → {token}"""
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = "login"
+
+
+@api_view(["GET", "PATCH"])
+@permission_classes([permissions.IsAuthenticated])
+def me(request):
+    if request.method == "PATCH":
+        serializer = MemberSerializer(request.user, data=request.data, partial=True, context={"request": request})
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+    data = MemberSerializer(request.user, context={"request": request}).data
+    return Response(data)
+
+
+@api_view(["GET"])
+@permission_classes([permissions.IsAuthenticated])
+def dashboard(request):
+    stats = activity.member_stats(request.user)
+    stats["total_time"] = int(stats["total_time"].total_seconds())
+    week = [{"date": d["date"], "label": d["label"], "km": d["km"]} for d in activity.weekly_activity(request.user)]
+    upcoming = Registration.objects.filter(
+        user=request.user, status=Registration.Status.CONFIRMED, event__starts_at__gte=timezone.now()
+    ).select_related("event").order_by("event__starts_at")[:5]
+    return Response({
+        "stats": stats,
+        "week": week,
+        "upcoming": RegistrationSerializer(upcoming, many=True).data,
+    })
+
+
+class EventViewSet(viewsets.ReadOnlyModelViewSet):
+    serializer_class = EventSerializer
+    lookup_field = "slug"
+    permission_classes = [permissions.IsAuthenticatedOrReadOnly]
+
+    def get_queryset(self):
+        qs = Event.objects.with_counts()
+        return qs.past() if self.request.query_params.get("when") == "past" else qs.upcoming()
+
+    def get_serializer_context(self):
+        ctx = super().get_serializer_context()
+        if self.request.user.is_authenticated:
+            ctx["my_event_ids"] = set(Registration.objects.filter(
+                user=self.request.user, status=Registration.Status.CONFIRMED).values_list("event_id", flat=True))
+        return ctx
+
+    def get_object(self):
+        # Inclui eventos passados, para que register/cancel devolvam o erro de negócio certo
+        event = get_object_or_404(Event.objects.published().with_counts(), slug=self.kwargs["slug"])
+        self.check_object_permissions(self.request, event)
+        return event
+
+    @action(detail=True, methods=["post"], permission_classes=[permissions.IsAuthenticated])
+    def register(self, request, slug=None):
+        event = self.get_object()
+        try:
+            reg = event_services.register(request.user, event, str(request.data.get("distance", ""))[:20])
+        except event_services.RegistrationError as exc:
+            return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+        return Response(RegistrationSerializer(reg).data, status=status.HTTP_201_CREATED)
+
+    @action(detail=True, methods=["post"], permission_classes=[permissions.IsAuthenticated])
+    def cancel(self, request, slug=None):
+        event = self.get_object()
+        try:
+            reg = event_services.cancel(request.user, event)
+        except event_services.RegistrationError as exc:
+            return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+        return Response(RegistrationSerializer(reg).data)
+
+
+class RunViewSet(mixins.ListModelMixin, mixins.CreateModelMixin, mixins.RetrieveModelMixin,
+                 mixins.DestroyModelMixin, viewsets.GenericViewSet):
+    serializer_class = RunSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        return Run.objects.filter(user=self.request.user).prefetch_related("point_transactions")
+
+    def perform_create(self, serializer):
+        d = serializer.validated_data
+        serializer.instance = activity.log_run(
+            self.request.user, date=d["date"], distance_km=d["distance_km"],
+            duration=timedelta(seconds=d["duration_seconds"]), title=d.get("title", ""), notes=d.get("notes", ""),
+        )
+
+    def perform_destroy(self, instance):
+        activity.delete_run(instance)
+
+
+class PointViewSet(viewsets.ReadOnlyModelViewSet):
+    serializer_class = PointTransactionSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        return PointTransaction.objects.filter(user=self.request.user)
+
+
+@api_view(["GET"])
+@permission_classes([permissions.AllowAny])
+def leaderboard(request):
+    period = request.query_params.get("period", "mes")
+    metric = request.query_params.get("metric", "pontos")
+    rows = get_leaderboard(period, metric)
+    return Response({"period": period, "metric": metric, "results": rows})

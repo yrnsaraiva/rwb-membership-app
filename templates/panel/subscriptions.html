@@ -1,0 +1,47 @@
+{% extends "panel/_base.html" %}
+{% load rwb %}
+{% block title %}Subscrições · Painel{% endblock %}
+{% block panel %}
+<h1 class="text-3xl font-semibold mb-1">Subscrições premium</h1>
+<p class="text-sm text-muted mb-4">Sem integração de pagamento nesta fase: confirma o pagamento (M-Pesa, transferência ou numerário) e activa aqui. A validade conta a partir da activação (ou do fim da subscrição actual, se for renovação).</p>
+<div class="flex gap-2 overflow-x-auto mb-4" style="scrollbar-width:none">
+  {% for value, label in statuses %}<a href="?estado={{ value }}" class="chip whitespace-nowrap {% if status == value %}chip-brand{% endif %}">{{ label }}</a>{% endfor %}
+  <a href="?estado=todas" class="chip {% if status == 'todas' %}chip-brand{% endif %}">Todas</a>
+</div>
+<div class="card table-wrap">
+  <table class="table">
+    <thead><tr><th>Membro</th><th>Plano</th><th>Pedido</th><th>Estado / validade</th><th class="text-right">Acção</th></tr></thead>
+    <tbody>
+      {% for s in page %}
+        <tr>
+          <td><a href="{% url 'panel:member_detail' s.user_id %}" class="font-medium">{{ s.user.display_name }}</a><p class="text-xs text-muted">{{ s.user.member_number }} · {{ s.user.phone|default:s.user.email }}</p></td>
+          <td>{{ s.plan.name }}<p class="text-xs text-muted">{{ s.amount_mzn|mzn }}</p></td>
+          <td class="tabular whitespace-nowrap text-muted">{{ s.created_at|date:"d/m/Y H:i" }}</td>
+          <td>
+            <span class="chip {% if s.status == 'active' %}chip-brand{% elif s.status == 'pending' %}chip-warn{% endif %}">{{ s.get_status_display }}</span>
+            {% if s.ends_at %}<p class="text-xs text-muted mt-1">até {{ s.ends_at|date:"d/m/Y" }}{% if s.payment_reference %} · ref. {{ s.payment_reference }}{% endif %}</p>{% endif %}
+          </td>
+          <td class="text-right">
+            {% if s.status != 'active' %}
+              <form method="post" action="{% url 'panel:subscription_activate' s.pk %}" class="flex flex-wrap gap-2 justify-end items-center">
+                {% csrf_token %}
+                <select name="payment_method" class="input !min-h-[34px] !py-1 !text-sm !w-auto">{% for v, l in form.fields.payment_method.choices %}<option value="{{ v }}" {% if v == 'mpesa_manual' %}selected{% endif %}>{{ l }}</option>{% endfor %}</select>
+                <input name="payment_reference" class="input !min-h-[34px] !py-1 !text-sm !w-32" placeholder="Referência">
+                <button class="btn btn-primary btn-sm">Activar</button>
+              </form>
+            {% endif %}
+            {% if s.status == 'active' or s.status == 'pending' %}
+              <form method="post" action="{% url 'panel:subscription_cancel' s.pk %}" class="mt-2" data-confirm="Cancelar esta subscrição?">
+                {% csrf_token %}<button class="text-xs text-muted hover:text-danger">Cancelar</button>
+              </form>
+            {% endif %}
+          </td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="5" class="text-center text-muted py-8">Sem subscrições neste estado.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% include "partials/pagination.html" %}
+{% endblock %}

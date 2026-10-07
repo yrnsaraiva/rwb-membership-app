@@ -1,0 +1,53 @@
+{% extends "panel/_base.html" %}
+{% load rwb %}
+{% block title %}Painel{% endblock %}
+{% block panel %}
+<h1 class="text-3xl font-semibold mb-5">Resumo do clube</h1>
+<section class="grid grid-cols-2 lg:grid-cols-5 gap-3">
+  <div class="card card-pad"><p class="stat-label">Membros activos</p><p class="stat-value mt-2">{{ kpi.members|num }}</p><p class="text-xs text-muted mt-1">+{{ kpi.new_members }} este mês</p></div>
+  <div class="card card-pad"><p class="stat-label">A correr (30 dias)</p><p class="stat-value mt-2">{{ kpi.active_members|num }}</p><p class="text-xs text-muted mt-1">com ≥1 corrida registada</p></div>
+  <div class="card card-pad"><p class="stat-label">Km este mês</p><p class="stat-value mt-2 text-accent">{{ kpi.km_month|km:0 }}</p><p class="text-xs text-muted mt-1">{{ kpi.runs_month|num }} corridas</p></div>
+  <div class="card card-pad"><p class="stat-label">Premium</p><p class="stat-value mt-2">{{ kpi.premium|num }}</p>
+    <p class="text-xs mt-1">{% if kpi.pending_subs %}<a href="{% url 'panel:subscriptions' %}" class="text-accent">{{ kpi.pending_subs }} pedido{{ kpi.pending_subs|pluralize }} pendente{{ kpi.pending_subs|pluralize }} →</a>{% else %}<span class="text-muted">sem pedidos pendentes</span>{% endif %}</p></div>
+  <div class="card card-pad col-span-2 lg:col-span-1"><p class="stat-label">Loja (mês)</p><p class="stat-value mt-2">{{ kpi.shop_revenue_month|km:0 }}<span class="stat-unit">MZN</span></p>
+    <p class="text-xs mt-1">{% if kpi.pending_orders or kpi.orders_to_deliver %}<a href="{% url 'panel:orders' %}" class="text-accent">{{ kpi.pending_orders }} por pagar · {{ kpi.orders_to_deliver }} por entregar →</a>{% else %}<span class="text-muted">sem encomendas abertas</span>{% endif %}</p></div>
+</section>
+
+<div class="grid lg:grid-cols-3 gap-3 mt-3">
+  <section class="card card-pad lg:col-span-2">
+    <div class="flex items-center justify-between mb-4">
+      <h2 class="text-lg font-semibold">Próximos eventos</h2>
+      <a href="{% url 'panel:event_create' %}" class="btn btn-primary btn-sm">{% include "icons/plus.svg" with cls="w-4 h-4" %} Novo evento</a>
+    </div>
+    <div class="divider">
+      {% for e in upcoming %}
+        <a href="{% url 'panel:event_registrations' e.pk %}" class="flex items-center gap-4 py-3">
+          <div class="w-12 text-center flex-none"><p class="font-display text-2xl leading-none">{{ e.starts_at|date:"d" }}</p><p class="text-[0.65rem] text-muted uppercase">{{ e.starts_at|date:"M" }}</p></div>
+          <div class="flex-1 min-w-0"><p class="font-medium truncate">{{ e.title }}</p><p class="text-xs text-muted">{{ e.starts_at|date:"H:i" }} · {{ e.location }}</p></div>
+          <div class="w-32 hidden sm:block">
+            {% if e.capacity %}<div class="progress"><span style="width: {% widthratio e.confirmed_total e.capacity 100 %}%"></span></div>{% endif %}
+            <p class="text-xs text-muted mt-1 text-right tabular">{{ e.confirmed_total }}{% if e.capacity %} / {{ e.capacity }}{% endif %} inscritos</p>
+          </div>
+        </a>
+      {% empty %}
+        <p class="text-sm text-muted py-4">Sem eventos agendados.</p>
+      {% endfor %}
+    </div>
+  </section>
+  <section class="card card-pad">
+    <h2 class="text-lg font-semibold mb-4">Novos membros / semana</h2>
+    <div class="bars !h-[120px]">
+      {% for w in signups %}
+        <div class="bar-col"><span class="bar-value">{% if w.count %}{{ w.count }}{% endif %}</span><div class="bar-track"><div class="bar {% if w.count %}has-value{% endif %}" style="height: {{ w.height }}%"></div></div><span class="bar-label !text-[0.58rem]">{{ w.label }}</span></div>
+      {% endfor %}
+    </div>
+    <h2 class="text-lg font-semibold mt-6 mb-2">Top km do mês</h2>
+    <div class="divider text-sm">
+      {% for m in top %}
+        <a href="{% url 'panel:member_detail' m.pk %}" class="flex justify-between py-2"><span class="truncate">{{ forloop.counter }}. {{ m.display_name }}</span><span class="tabular text-muted">{{ m.km|km }} km</span></a>
+      {% empty %}<p class="text-muted py-2">Sem corridas este mês.</p>{% endfor %}
+    </div>
+    <p class="text-xs text-muted mt-4">{{ kpi.registrations_30d }} inscrições em eventos nos últimos 30 dias.</p>
+  </section>
+</div>
+{% endblock %}

@@ -1,0 +1,1 @@
+{% autoescape off %}Encomenda {{ order.number }} registada — {{ order.total_mzn|floatformat:0 }} MZN{% endautoescape %}

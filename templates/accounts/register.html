@@ -1,0 +1,22 @@
+{% extends "accounts/_auth_shell.html" %}
+{% block title %}Tornar-me membro{% endblock %}
+{% block eyebrow %}Junta-te ao clube{% endblock %}
+{% block heading %}Criar conta{% endblock %}
+{% block lead %}Recebes logo o teu número de sócio e o cartão digital com QR code.{% endblock %}
+{% block form %}
+<form method="post" class="space-y-4" novalidate>
+  {% csrf_token %}
+  {% include "partials/form_errors.html" %}
+  <div class="grid grid-cols-2 gap-3">
+    {% include "partials/field.html" with field=form.first_name %}
+    {% include "partials/field.html" with field=form.last_name %}
+  </div>
+  {% include "partials/field.html" with field=form.email %}
+  {% include "partials/field.html" with field=form.phone %}
+  {% include "partials/field.html" with field=form.password1 %}
+  {% include "partials/field.html" with field=form.password2 %}
+  {% include "partials/field.html" with field=form.accept_terms %}
+  <button type="submit" class="btn btn-primary btn-block">Criar conta</button>
+</form>
+<p class="text-center text-sm text-muted mt-6">Já tens conta? <a href="{% url 'accounts:login' %}" class="text-accent font-semibold">Entrar</a></p>
+{% endblock %}

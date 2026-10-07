@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+{% load rwb %}
+{% block title %}Encomenda {{ order.number }}{% endblock %}
+{% block content %}
+<a href="{% url 'shop:orders' %}" class="text-sm text-muted inline-flex items-center gap-1 mb-3">{% include "icons/chevron-left.svg" with cls="w-4 h-4" %} Encomendas</a>
+<div class="flex items-start justify-between gap-3 mb-5">
+  <div>
+    <p class="eyebrow">{{ order.created_at|date:"j \d\e F \d\e Y, H:i" }}</p>
+    <h1 class="text-4xl font-semibold">Encomenda {{ order.number }}</h1>
+  </div>
+  <span class="chip {% if order.status == 'pending' %}chip-warn{% elif order.status == 'cancelled' %}chip-danger{% elif order.status == 'completed' %}{% else %}chip-brand{% endif %} mt-2">{{ order.get_status_display }}</span>
+</div>
+
+{% if order.status == 'pending' %}
+  <section class="card card-pad border-brand mb-4">
+    <p class="font-display text-2xl font-semibold uppercase">Como pagar</p>
+    <p class="text-sm text-soft mt-1">Paga <strong class="text-fg">{{ order.total_mzn|mzn }}</strong> e usa <strong class="text-fg">{{ order.number }}</strong> como referência.</p>
+    <div class="mt-4 space-y-3 text-sm">
+      {% if payment.mpesa_number %}
+        <div class="rounded-xl bg-surface2 border border-line p-3">
+          <p class="stat-label">M-Pesa</p>
+          <p class="font-display text-2xl font-semibold tabular mt-1">{{ payment.mpesa_number }}</p>
+          <p class="text-muted">{{ payment.mpesa_name }}</p>
+        </div>
+      {% endif %}
+      {% if payment.bank_details %}
+        <div class="rounded-xl bg-surface2 border border-line p-3"><p class="stat-label">Transferência</p><p class="mt-1 whitespace-pre-line">{{ payment.bank_details }}</p></div>
+      {% endif %}
+      {% if not payment.mpesa_number and not payment.bank_details %}
+        <p class="text-soft">O clube vai contactar-te pelo {{ order.phone }} para combinar o pagamento.</p>
+      {% endif %}
+      <p class="text-muted">Também podes pagar em numerário ao levantar. Guardamos o stock durante {{ payment.hold_days }} dias; depois disso a encomenda é cancelada automaticamente.</p>
+    </div>
+  </section>
+{% endif %}
+
+{% with steps=order.progress %}
+{% if steps %}
+<section class="card card-pad mb-4">
+  <div class="space-y-4">
+    {% for s in steps %}
+      <div class="status-step {% if s.done %}is-done{% elif s.current %}is-current{% endif %}">
+        <span class="status-dot">{% if s.done %}{% include "icons/check.svg" with cls="w-3 h-3" %}{% endif %}</span>
+        <span class="{% if not s.done and not s.current %}text-muted{% else %}font-medium{% endif %}">{{ s.label }}</span>
+      </div>
+    {% endfor %}
+  </div>
+</section>
+{% endif %}
+{% endwith %}
+
+<section class="card card-pad mb-4">
+  <p class="stat-label mb-2">Artigos</p>
+  <div class="divider text-sm mb-4">
+    {% for item in order.items.all %}
+      <div class="flex justify-between gap-3 py-2"><span>{{ item.quantity }}× {{ item.product_name }} <span class="text-muted">({{ item.variant_name }})</span></span><span class="tabular">{{ item.line_total|mzn }}</span></div>
+    {% endfor %}
+  </div>
+  <div class="space-y-2 text-sm">
+    <div class="flex justify-between"><span class="text-muted">Subtotal</span><span class="tabular">{{ order.subtotal_mzn|mzn }}</span></div>
+    {% if order.discount_mzn %}<div class="flex justify-between text-accent"><span>Desconto premium</span><span class="tabular">−{{ order.discount_mzn|mzn }}</span></div>{% endif %}
+    <div class="flex justify-between"><span class="text-muted">Entrega</span><span class="tabular">{% if order.delivery_fee_mzn %}{{ order.delivery_fee_mzn|mzn }}{% else %}Grátis{% endif %}</span></div>
+    <div class="flex justify-between items-baseline border-t border-line pt-3"><span class="font-semibold">Total</span><span class="price text-2xl">{{ order.total_mzn|mzn }}</span></div>
+  </div>
+</section>
+
+<section class="card card-pad text-sm space-y-2 mb-4">
+  <div class="flex justify-between gap-4"><span class="text-muted">Entrega</span><span class="text-right">{{ order.get_fulfilment_display }}</span></div>
+  {% if order.pickup_event %}<div class="flex justify-between gap-4"><span class="text-muted">Evento</span><a href="{{ order.pickup_event.get_absolute_url }}" class="text-right underline">{{ order.pickup_event.title }} · {{ order.pickup_event.starts_at|date:"j M, H:i" }}</a></div>{% endif %}
+  {% if order.delivery_address %}<div class="flex justify-between gap-4"><span class="text-muted">Morada</span><span class="text-right">{{ order.delivery_address }}</span></div>{% endif %}
+  <div class="flex justify-between gap-4"><span class="text-muted">Contacto</span><span>{{ order.customer_name }} · {{ order.phone }}</span></div>
+  {% if order.paid_at %}<div class="flex justify-between gap-4"><span class="text-muted">Pago em</span><span>{{ order.paid_at|date:"j M Y, H:i" }}</span></div>{% endif %}
+</section>
+
+{% if order.can_cancel %}
+  <form method="post" action="{% url 'shop:order_cancel' order.pk %}" data-confirm="Cancelar a encomenda {{ order.number }}?">
+    {% csrf_token %}
+    <button class="btn btn-danger btn-block">Cancelar encomenda</button>
+  </form>
+{% endif %}
+{% endblock %}

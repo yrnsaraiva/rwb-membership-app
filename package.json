@@ -1,0 +1,12 @@
+{
+  "name": "runwithbroto",
+  "private": true,
+  "description": "Build do CSS (Tailwind) do RWB member app",
+  "scripts": {
+    "build:css": "tailwindcss -i ./assets/css/input.css -o ./static/css/app.css --minify",
+    "watch:css": "tailwindcss -i ./assets/css/input.css -o ./static/css/app.css --watch"
+  },
+  "devDependencies": {
+    "tailwindcss": "^3.4.17"
+  }
+}

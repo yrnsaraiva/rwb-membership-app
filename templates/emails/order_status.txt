@@ -1,0 +1,7 @@
+{% autoescape off %}Olá {{ user.first_name }},
+
+{% if order.status == 'paid' %}Recebemos o pagamento da encomenda {{ order.number }}. Estamos a prepará-la!{% elif order.status == 'ready' %}A tua encomenda {{ order.number }} está pronta.{% if order.pickup_event %} Levanta-a em {{ order.pickup_event.title }} ({{ order.pickup_event.starts_at|date:"j \d\e F, H:i" }}) — mostra o teu cartão de membro.{% elif order.fulfilment == 'delivery' %} Vamos entregar em breve na morada indicada.{% else %} Vamos contactar-te para combinar o levantamento.{% endif %}{% endif %}
+
+{{ site_url }}{{ order.get_absolute_url }}
+
+Equipa RWB{% endautoescape %}

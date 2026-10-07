@@ -1,0 +1,69 @@
+{% extends "panel/_base.html" %}
+{% load rwb %}
+{% block title %}{{ member.display_name }}{% endblock %}
+{% block panel %}
+<a href="{% url 'panel:members' %}" class="text-sm text-muted inline-flex items-center gap-1 mb-3">{% include "icons/chevron-left.svg" with cls="w-4 h-4" %} Membros</a>
+<div class="flex flex-col sm:flex-row sm:items-center gap-4 mb-5">
+  {% include "partials/avatar.html" with u=member size="w-16 h-16 text-xl" %}
+  <div class="flex-1 min-w-0">
+    <p class="eyebrow">{{ member.member_number }}</p>
+    <h1 class="text-3xl font-semibold truncate">{{ member.display_name }}</h1>
+    <p class="text-sm text-muted">{{ member.email }} · {{ member.phone|default:"sem telemóvel" }} · desde {{ member.date_joined|date:"d/m/Y" }}</p>
+  </div>
+  <form method="post" action="{% url 'panel:member_toggle_active' member.pk %}" data-confirm="{% if member.is_active %}Desactivar{% else %}Reactivar{% endif %} esta conta?">
+    {% csrf_token %}
+    <button class="btn {% if member.is_active %}btn-danger{% else %}btn-primary{% endif %} btn-sm">{% if member.is_active %}Desactivar conta{% else %}Reactivar conta{% endif %}</button>
+  </form>
+</div>
+
+<section class="grid grid-cols-2 lg:grid-cols-5 gap-3">
+  <div class="card card-pad"><p class="stat-label">Km total</p><p class="stat-value mt-2 !text-2xl">{{ stats.total_km|km }}</p></div>
+  <div class="card card-pad"><p class="stat-label">Corridas</p><p class="stat-value mt-2 !text-2xl">{{ stats.total_runs }}</p></div>
+  <div class="card card-pad"><p class="stat-label">Pontos</p><p class="stat-value mt-2 !text-2xl text-accent">{{ stats.points|num }}</p></div>
+  <div class="card card-pad"><p class="stat-label">Streak</p><p class="stat-value mt-2 !text-2xl">{{ stats.current_streak }}</p></div>
+  <div class="card card-pad"><p class="stat-label">Premium</p><p class="stat-value mt-2 !text-2xl">{% if member.is_premium %}Sim{% else %}Não{% endif %}</p></div>
+</section>
+
+<div class="grid lg:grid-cols-2 gap-3 mt-3">
+  <section class="card">
+    <h2 class="text-lg font-semibold px-4 pt-4 pb-2">Corridas recentes</h2>
+    <div class="divider">{% for run in runs %}{% include "activity/_run_row.html" %}{% empty %}<p class="px-4 pb-4 text-sm text-muted">Sem corridas.</p>{% endfor %}</div>
+  </section>
+  <section class="card">
+    <h2 class="text-lg font-semibold px-4 pt-4 pb-2">Eventos</h2>
+    <div class="divider text-sm">
+      {% for r in registrations %}
+        <div class="flex items-center justify-between gap-3 px-4 py-3">
+          <a href="{% url 'panel:event_registrations' r.event_id %}" class="truncate">{{ r.event.title }} <span class="text-muted">· {{ r.event.starts_at|date:"d/m/Y" }}</span></a>
+          {% if r.checked_in_at %}<span class="chip chip-brand">Presente</span>{% elif r.is_active %}<span class="chip">Inscrito</span>{% else %}<span class="chip">Cancelou</span>{% endif %}
+        </div>
+      {% empty %}<p class="px-4 pb-4 text-muted">Sem inscrições.</p>{% endfor %}
+    </div>
+  </section>
+  <section class="card card-pad">
+    <h2 class="text-lg font-semibold mb-3">Ajustar pontos</h2>
+    <form method="post" class="space-y-3" novalidate>
+      {% csrf_token %}
+      <div class="grid grid-cols-3 gap-3">
+        <div class="col-span-1">{% include "partials/field.html" with field=form.amount %}</div>
+        <div class="col-span-2">{% include "partials/field.html" with field=form.description %}</div>
+      </div>
+      <button class="btn btn-primary btn-sm">Registar ajuste</button>
+    </form>
+    <div class="divider text-sm mt-4">
+      {% for t in points %}<div class="flex justify-between py-2"><span class="truncate">{{ t.get_reason_display }} <span class="text-muted">· {{ t.description }}</span></span><span class="tabular {% if t.amount > 0 %}text-accent{% else %}text-danger{% endif %}">{% if t.amount > 0 %}+{% endif %}{{ t.amount }}</span></div>{% endfor %}
+    </div>
+  </section>
+  <section class="card">
+    <h2 class="text-lg font-semibold px-4 pt-4 pb-2">Subscrições</h2>
+    <div class="divider text-sm">
+      {% for s in subscriptions %}
+        <div class="flex items-center justify-between gap-3 px-4 py-3">
+          <span>{{ s.plan.name }} <span class="text-muted">· {{ s.amount_mzn|mzn }}{% if s.ends_at %} · até {{ s.ends_at|date:"d/m/Y" }}{% endif %}</span></span>
+          <span class="chip {% if s.status == 'active' %}chip-brand{% elif s.status == 'pending' %}chip-warn{% endif %}">{{ s.get_status_display }}</span>
+        </div>
+      {% empty %}<p class="px-4 pb-4 text-muted">Sem subscrições.</p>{% endfor %}
+    </div>
+  </section>
+</div>
+{% endblock %}

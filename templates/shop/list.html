@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% load rwb %}
+{% block title %}Loja{% endblock %}
+{% block main_class %}max-w-5xl{% endblock %}
+{% block container_class %}max-w-5xl{% endblock %}
+{% block messages_container %}max-w-5xl{% endblock %}
+{% block content %}
+<div class="flex items-end justify-between gap-3 mb-2">
+  <div>
+    <p class="eyebrow">Merch oficial</p>
+    <h1 class="text-4xl font-semibold">Loja RWB</h1>
+  </div>
+  <a href="{% url 'shop:orders' %}" class="btn btn-ghost btn-sm">{% include "icons/package.svg" with cls="w-4 h-4" %}<span class="hidden sm:inline">Encomendas</span></a>
+</div>
+<p class="text-muted mb-5 max-w-xl">Veste as cores do clube. Encomenda aqui, paga por M-Pesa e levanta no próximo evento.{% if premium_discount %} Membros premium têm <strong class="text-fg">{{ premium_discount }}% de desconto</strong>.{% endif %}</p>
+
+{% if categories|length > 1 %}
+<div class="flex gap-2 overflow-x-auto pb-1 mb-5" style="scrollbar-width:none">
+  <a href="{% url 'shop:list' %}" class="chip whitespace-nowrap {% if not current_category %}chip-brand{% endif %}">Tudo</a>
+  {% for c in categories %}<a href="?categoria={{ c.slug }}" class="chip whitespace-nowrap {% if current_category == c.slug %}chip-brand{% endif %}">{{ c.name }}</a>{% endfor %}
+</div>
+{% endif %}
+
+<div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+  {% for product in products %}
+    {% include "shop/_product_card.html" %}
+  {% empty %}
+    <div class="card card-pad text-center py-12 col-span-full">
+      <div class="mx-auto w-12 h-12 rounded-full bg-surface2 grid place-items-center text-muted mb-3">{% include "icons/bag.svg" %}</div>
+      <p class="font-medium">A loja abre em breve</p>
+      <p class="text-sm text-muted mt-1">Estamos a preparar a nova colecção.</p>
+    </div>
+  {% endfor %}
+</div>
+{% endblock %}

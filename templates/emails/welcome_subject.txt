@@ -1,0 +1,1 @@
+{% autoescape off %}Bem-vindo ao RunWithBroto, {{ user.first_name }}!{% endautoescape %}

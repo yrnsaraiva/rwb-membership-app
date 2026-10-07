@@ -1,0 +1,30 @@
+{% extends "panel/_base.html" %}
+{% block title %}Membros{% endblock %}
+{% block panel %}
+<div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+  <h1 class="text-3xl font-semibold">Membros <span class="text-muted text-xl">{{ page.paginator.count }}</span></h1>
+  <div class="flex gap-2">
+    <form method="get" class="flex-1 sm:w-72"><input class="input !min-h-[40px]" type="search" name="q" value="{{ q }}" placeholder="Nome, email, nº sócio, telemóvel"></form>
+    <a href="?formato=csv{% if q %}&q={{ q|urlencode }}{% endif %}" class="btn btn-ghost btn-sm">{% include "icons/download.svg" with cls="w-4 h-4" %} CSV</a>
+  </div>
+</div>
+<div class="card table-wrap">
+  <table class="table">
+    <thead><tr><th>Membro</th><th>Nº sócio</th><th class="hidden md:table-cell">Telemóvel</th><th class="hidden md:table-cell">Registo</th><th>Estado</th></tr></thead>
+    <tbody>
+      {% for m in page %}
+        <tr>
+          <td><a href="{% url 'panel:member_detail' m.pk %}" class="flex items-center gap-3">{% include "partials/avatar.html" with u=m size="w-8 h-8 text-xs" %}<span class="min-w-0"><span class="font-medium block truncate">{{ m.display_name }}</span><span class="text-xs text-muted truncate block">{{ m.email }}</span></span></a></td>
+          <td class="tabular">{{ m.member_number }}</td>
+          <td class="hidden md:table-cell">{{ m.phone|default:"—" }}</td>
+          <td class="hidden md:table-cell text-muted">{{ m.date_joined|date:"d/m/Y" }}</td>
+          <td>{% if not m.is_active %}<span class="chip chip-danger">Inactivo</span>{% elif m.is_staff %}<span class="chip chip-brand">Staff</span>{% else %}<span class="chip">Activo</span>{% endif %}</td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="5" class="text-center text-muted py-8">Nenhum membro encontrado.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% include "partials/pagination.html" %}
+{% endblock %}

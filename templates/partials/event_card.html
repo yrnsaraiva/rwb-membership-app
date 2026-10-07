@@ -1,0 +1,26 @@
+{% comment %}Uso: {% include "partials/event_card.html" with event=e registered=bool %}{% endcomment %}
+<a href="{{ event.get_absolute_url }}" class="card card-link flex gap-4 p-3 items-stretch">
+  <div class="flex-none w-[68px] rounded-xl bg-surface2 border border-line flex flex-col items-center justify-center py-2">
+    <span class="eyebrow !text-[0.62rem] !tracking-[0.1em]">{{ event.starts_at|date:"M" }}</span>
+    <span class="font-display text-3xl font-semibold leading-none">{{ event.starts_at|date:"d" }}</span>
+    <span class="text-[0.7rem] text-muted mt-1">{{ event.starts_at|date:"H:i" }}</span>
+  </div>
+  <div class="min-w-0 flex-1 py-0.5">
+    <div class="flex items-center gap-2 mb-1 flex-wrap">
+      <span class="chip !py-0.5 !text-[0.68rem]">{{ event.get_kind_display }}</span>
+      {% if registered %}<span class="chip chip-brand !py-0.5 !text-[0.68rem]">{% include "icons/check.svg" with cls="w-3 h-3" %} Inscrito</span>{% endif %}
+      {% if event.members_only %}<span class="chip chip-warn !py-0.5 !text-[0.68rem]">Premium</span>{% endif %}
+    </div>
+    <h3 class="text-lg font-semibold truncate">{{ event.title }}</h3>
+    <p class="text-sm text-muted flex items-center gap-1 truncate">{% include "icons/pin.svg" with cls="w-3.5 h-3.5 flex-none" %}{{ event.location }}{% if event.distances %} · {{ event.distances }}{% endif %}</p>
+    {% if event.capacity %}
+      {% with left=event.spots_left %}
+        <div class="mt-2 flex items-center gap-2">
+          <div class="progress flex-1 {% if left <= 5 %}is-hot{% endif %}"><span style="width: {% widthratio event.confirmed_total event.capacity 100 %}%"></span></div>
+          <span class="text-[0.72rem] {% if left == 0 %}text-danger{% else %}text-muted{% endif %} tabular whitespace-nowrap">{% if left == 0 %}Esgotado{% else %}{{ left }} vaga{{ left|pluralize }}{% endif %}</span>
+        </div>
+      {% endwith %}
+    {% endif %}
+  </div>
+  <span class="self-center text-muted">{% include "icons/chevron-right.svg" with cls="w-5 h-5" %}</span>
+</a>

@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% load rwb %}
+{% block title %}Finalizar encomenda{% endblock %}
+{% block content %}
+<a href="{% url 'shop:cart' %}" class="text-sm text-muted inline-flex items-center gap-1 mb-3">{% include "icons/chevron-left.svg" with cls="w-4 h-4" %} Carrinho</a>
+<h1 class="text-4xl font-semibold mb-5">Finalizar</h1>
+<form method="post" class="space-y-4" novalidate data-checkout data-delivery-fee="{{ delivery_fee }}" data-items-total="{{ summary.items_total|stringformat:'s' }}">
+  {% csrf_token %}
+  {% include "partials/form_errors.html" %}
+  <section class="card card-pad space-y-3">
+    <p class="label">{{ form.fulfilment.label }}</p>
+    {% for radio in form.fulfilment %}
+      <label class="choice-card flex items-start gap-3 p-3 rounded-xl border border-line cursor-pointer">
+        {{ radio.tag }}
+        <span class="flex-1">
+          <span class="font-medium block">{{ radio.choice_label }}</span>
+          <span class="text-xs text-muted">{% if radio.data.value == 'event' %}Grátis · levantas na mesa do clube com o teu cartão{% elif radio.data.value == 'pickup' %}Grátis · combinamos contigo o local e a hora{% else %}{{ delivery_fee }} MZN · 1–3 dias úteis{% endif %}</span>
+        </span>
+      </label>
+    {% endfor %}
+    {{ form.fulfilment.errors }}
+    <div data-show-for="event">{% include "partials/field.html" with field=form.pickup_event %}</div>
+    <div data-show-for="delivery">{% include "partials/field.html" with field=form.delivery_address %}</div>
+  </section>
+  <section class="card card-pad space-y-4">
+    {% include "partials/field.html" with field=form.customer_name %}
+    {% include "partials/field.html" with field=form.phone %}
+    {% include "partials/field.html" with field=form.notes %}
+  </section>
+  <section class="card card-pad">
+    <p class="stat-label mb-3">Resumo</p>
+    <div class="divider text-sm mb-4">
+      {% for line in summary.lines %}
+        <div class="flex justify-between gap-3 py-2"><span class="truncate">{{ line.quantity }}× {{ line.product.name }} <span class="text-muted">({{ line.variant.name }})</span></span><span class="tabular">{{ line.line_total|mzn }}</span></div>
+      {% endfor %}
+    </div>
+    {% include "shop/_summary.html" %}
+  </section>
+  <div class="card card-pad text-sm text-soft flex gap-3">
+    {% include "icons/card.svg" with cls="w-5 h-5 text-accent flex-none" %}
+    <p>O pagamento ainda não é feito na app. Depois de confirmares, mostramos como pagar por <strong class="text-fg">M-Pesa, transferência ou numerário</strong>. O stock fica reservado para ti durante alguns dias.</p>
+  </div>
+  <button type="submit" class="btn btn-primary btn-block">Confirmar encomenda</button>
+</form>
+{% endblock %}

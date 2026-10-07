@@ -1,0 +1,16 @@
+{% autoescape off %}Olá {{ user.first_name }},
+
+A tua inscrição está confirmada!
+
+{{ event.title }}
+Quando: {{ event.starts_at|date:"l, j \d\e F \à\s H:i" }}
+Onde: {{ event.location }}{% if event.meeting_point %} — {{ event.meeting_point }}{% endif %}{% if registration.distance %}
+Distância: {{ registration.distance }}{% endif %}
+
+Mostra o teu cartão de membro (QR) à chegada para ganhares {{ event.effective_checkin_points }} pontos.
+Detalhes do evento: {{ site_url }}{{ event.get_absolute_url }}
+Adicionar ao calendário: {{ site_url }}{% url 'events:ics' event.slug %}
+
+Se não puderes ir, cancela na app para libertares a vaga.
+
+Equipa RWB{% endautoescape %}

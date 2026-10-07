@@ -1,0 +1,98 @@
+{% extends "base.html" %}
+{% load rwb static %}
+{% block title %}{{ product.name }}{% endblock %}
+{% block description %}{{ product.summary|default:product.name }} — {{ product.price_mzn|mzn }}{% endblock %}
+{% block main_class %}max-w-5xl{% endblock %}
+{% block container_class %}max-w-5xl{% endblock %}
+{% block messages_container %}max-w-5xl{% endblock %}
+{% block content %}
+<a href="{% url 'shop:list' %}" class="text-sm text-muted inline-flex items-center gap-1 mb-3">{% include "icons/chevron-left.svg" with cls="w-4 h-4" %} Loja</a>
+<div class="grid md:grid-cols-2 gap-6 md:gap-10">
+  <div>
+    {% with images=product.images.all %}
+      <div class="product-media !rounded-[20px]">
+        {% if images %}<img src="{{ images.0.image.url }}" alt="{{ images.0.alt|default:product.name }}" data-main-image>
+        {% else %}<div class="product-placeholder"><img src="{% static 'img/brand/logo-yellow.png' %}" alt="" class="!h-auto !object-contain"></div>{% endif %}
+      </div>
+      {% if images|length > 1 %}
+        <div class="grid grid-cols-5 gap-2 mt-2">
+          {% for img in images %}
+            <button type="button" class="product-media !rounded-lg border border-line" data-thumb="{{ img.image.url }}" aria-label="Ver imagem {{ forloop.counter }}"><img src="{{ img.image.url }}" alt="" loading="lazy"></button>
+          {% endfor %}
+        </div>
+      {% endif %}
+    {% endwith %}
+  </div>
+
+  <div>
+    {% if product.category %}<p class="eyebrow">{{ product.category.name }}</p>{% endif %}
+    <h1 class="text-4xl font-semibold mt-1">{{ product.name }}</h1>
+    <p class="mt-3 flex items-baseline gap-3">
+      <span class="price text-3xl">{{ product.price_mzn|mzn }}</span>
+      {% if product.compare_at_price_mzn %}<span class="price-old text-lg">{{ product.compare_at_price_mzn|mzn }}</span>{% endif %}
+    </p>
+    {% if premium_discount %}
+      <p class="text-sm mt-1">
+        {% if user.is_authenticated and user.is_premium %}<span class="chip chip-brand">{% include "icons/star.svg" with cls="w-3 h-3" %} Pagas {{ product.premium_price_mzn|mzn }} como premium</span>
+        {% else %}<span class="text-muted">Premium: <strong class="text-fg">{{ product.premium_price_mzn|mzn }}</strong> · <a href="{% url 'billing:plans' %}" class="underline">saber mais</a></span>{% endif %}
+      </p>
+    {% endif %}
+    {% if product.summary %}<p class="text-soft mt-4">{{ product.summary }}</p>{% endif %}
+
+    {% if variants %}
+    <form method="post" action="{% url 'shop:cart_add' product.slug %}" class="mt-6 space-y-5" data-add-to-cart>
+      {% csrf_token %}
+      <fieldset>
+        <legend class="label mb-2">{% if variants|length > 1 %}Escolhe a opção{% else %}Opção{% endif %}</legend>
+        <div class="flex flex-wrap gap-2">
+          {% for v in variants %}
+            <label>
+              <input type="radio" name="variant" value="{{ v.pk }}" class="peer sr-only" {% if v == default_variant %}checked{% endif %} {% if v.stock == 0 %}disabled{% endif %} data-stock="{{ v.stock }}">
+              <span class="option-pill">{{ v.name }}</span>
+            </label>
+          {% endfor %}
+        </div>
+        <p class="help mt-2" data-stock-note>{% if default_variant and default_variant.stock <= 5 %}Só restam {{ default_variant.stock }}!{% endif %}</p>
+      </fieldset>
+      {% if default_variant %}
+        <div class="flex items-center gap-3">
+          <div class="qty" data-qty>
+            <button type="button" data-qty-step="-1" aria-label="Menos">{% include "icons/minus.svg" with cls="w-4 h-4" %}</button>
+            <input type="number" name="quantity" value="1" min="1" max="{{ max_qty }}" inputmode="numeric" aria-label="Quantidade">
+            <button type="button" data-qty-step="1" aria-label="Mais">{% include "icons/plus.svg" with cls="w-4 h-4" %}</button>
+          </div>
+          <button type="submit" class="btn btn-primary flex-1">{% include "icons/bag.svg" with cls="w-4 h-4" %} Adicionar ao carrinho</button>
+        </div>
+        <button type="submit" name="next" value="checkout" class="btn btn-dark btn-block">Comprar agora</button>
+      {% else %}
+        <button type="button" class="btn btn-ghost btn-block" disabled>Esgotado</button>
+      {% endif %}
+    </form>
+    {% endif %}
+
+    <div class="card card-pad mt-6 text-sm space-y-2.5">
+      <p class="flex gap-2">{% include "icons/calendar.svg" with cls="w-4 h-4 text-accent flex-none mt-0.5" %}<span>Levanta grátis em qualquer evento do clube.</span></p>
+      <p class="flex gap-2">{% include "icons/truck.svg" with cls="w-4 h-4 text-accent flex-none mt-0.5" %}<span>Entrega em Maputo/Matola por {{ delivery_fee|default:150 }} MZN.</span></p>
+      <p class="flex gap-2">{% include "icons/card.svg" with cls="w-4 h-4 text-accent flex-none mt-0.5" %}<span>Pagamento por M-Pesa, transferência ou numerário após a encomenda.</span></p>
+    </div>
+
+    {% if product.description %}
+      <h2 class="text-xl font-semibold mt-8 mb-2">Detalhes</h2>
+      <div class="prose-rwb">{{ product.description|linebreaks }}</div>
+    {% endif %}
+    {% if product.size_guide %}
+      <details class="card card-pad mt-4">
+        <summary class="font-semibold cursor-pointer">Guia de tamanhos</summary>
+        <div class="prose-rwb mt-3 text-sm">{{ product.size_guide|linebreaks }}</div>
+      </details>
+    {% endif %}
+  </div>
+</div>
+
+{% if related %}
+  <h2 class="text-2xl font-semibold mt-12 mb-4">Também vais gostar</h2>
+  <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+    {% for product in related %}{% include "shop/_product_card.html" %}{% endfor %}
+  </div>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,22 @@
+{% extends "emails/_layout.html" %}
+{% block body %}
+<p style="color:#FABB00;font-size:12px;letter-spacing:2px;text-transform:uppercase;font-weight:600;margin:0 0 6px;">Encomenda registada</p>
+<h1 style="font-family:Oswald,Arial Narrow,Arial,sans-serif;text-transform:uppercase;color:#fff;font-size:26px;margin:0 0 16px;">{{ order.number }}</h1>
+<table role="presentation" cellpadding="0" cellspacing="0" style="width:100%;font-size:14px;">
+  {% for i in order.items.all %}
+  <tr><td style="padding:6px 0;border-bottom:1px solid #2A2A2A;">{{ i.quantity }}× {{ i.product_name }} <span style="color:#9a9a9a;">({{ i.variant_name }})</span></td><td align="right" style="padding:6px 0;border-bottom:1px solid #2A2A2A;">{{ i.line_total|floatformat:0 }} MZN</td></tr>
+  {% endfor %}
+  {% if order.discount_mzn %}<tr><td style="padding:6px 0;color:#FABB00;">Desconto premium</td><td align="right" style="color:#FABB00;">−{{ order.discount_mzn|floatformat:0 }} MZN</td></tr>{% endif %}
+  {% if order.delivery_fee_mzn %}<tr><td style="padding:6px 0;">Entrega</td><td align="right">{{ order.delivery_fee_mzn|floatformat:0 }} MZN</td></tr>{% endif %}
+  <tr><td style="padding:10px 0;font-weight:700;color:#fff;">Total</td><td align="right" style="font-weight:700;color:#fff;font-size:18px;">{{ order.total_mzn|floatformat:0 }} MZN</td></tr>
+</table>
+<div style="background:#1C1C1C;border:1px solid #FABB00;border-radius:12px;padding:14px 16px;margin-top:16px;">
+  <p style="margin:0 0 6px;color:#fff;font-weight:700;">Como pagar · referência {{ order.number }}</p>
+  {% if payment.mpesa_number %}<p style="margin:0;">M-Pesa: <strong style="color:#fff;">{{ payment.mpesa_number }}</strong> ({{ payment.mpesa_name }})</p>{% endif %}
+  {% if payment.bank_details %}<p style="margin:4px 0 0;">Transferência: {{ payment.bank_details }}</p>{% endif %}
+  {% if not payment.mpesa_number and not payment.bank_details %}<p style="margin:0;">O clube vai contactar-te para combinar o pagamento.</p>{% endif %}
+  <p style="margin:8px 0 0;color:#9a9a9a;font-size:13px;">Guardamos o stock durante {{ payment.hold_days }} dias.</p>
+</div>
+<p style="margin-top:16px;">Entrega: {{ order.get_fulfilment_display }}{% if order.pickup_event %} — {{ order.pickup_event.title }}, {{ order.pickup_event.starts_at|date:"j \d\e F, H:i" }}{% endif %}</p>
+<p style="margin:24px 0;"><a href="{{ site_url }}{{ order.get_absolute_url }}" style="background:#FABB00;color:#0B0B0B;padding:12px 20px;border-radius:999px;text-decoration:none;font-weight:600;">Ver encomenda</a></p>
+{% endblock %}

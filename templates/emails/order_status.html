@@ -1,0 +1,14 @@
+{% extends "emails/_layout.html" %}
+{% block body %}
+<p style="color:#FABB00;font-size:12px;letter-spacing:2px;text-transform:uppercase;font-weight:600;margin:0 0 6px;">{{ order.get_status_display }}</p>
+<h1 style="font-family:Oswald,Arial Narrow,Arial,sans-serif;text-transform:uppercase;color:#fff;font-size:26px;margin:0 0 16px;">Encomenda {{ order.number }}</h1>
+{% if order.status == 'paid' %}
+  <p>Recebemos o teu pagamento. Estamos a preparar a encomenda!</p>
+{% elif order.status == 'ready' %}
+  <p>A tua encomenda está pronta.
+  {% if order.pickup_event %}Levanta-a em <strong style="color:#fff;">{{ order.pickup_event.title }}</strong> ({{ order.pickup_event.starts_at|date:"j \d\e F, H:i" }}) — mostra o teu cartão de membro.
+  {% elif order.fulfilment == 'delivery' %}Vamos entregar em breve na morada indicada.
+  {% else %}Vamos contactar-te para combinar o levantamento.{% endif %}</p>
+{% endif %}
+<p style="margin:24px 0;"><a href="{{ site_url }}{{ order.get_absolute_url }}" style="background:#FABB00;color:#0B0B0B;padding:12px 20px;border-radius:999px;text-decoration:none;font-weight:600;">Ver encomenda</a></p>
+{% endblock %}

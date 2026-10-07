@@ -1,0 +1,18 @@
+{% comment %}Uso: {% include "partials/field.html" with field=form.email %}{% endcomment %}
+{% if field.field.widget.input_type == "checkbox" %}
+  <div class="field {% if field.errors %}has-error{% endif %}">
+    <label class="flex items-start gap-3 cursor-pointer">
+      {{ field }}
+      <span class="text-sm text-soft leading-snug">{{ field.label }}</span>
+    </label>
+    {% if field.help_text %}<p class="help">{{ field.help_text|safe }}</p>{% endif %}
+    {{ field.errors }}
+  </div>
+{% else %}
+  <div class="field {% if field.errors %}has-error{% endif %}">
+    <label class="label" for="{{ field.id_for_label }}">{{ field.label }}{% if field.field.required %}<span class="text-accent"> *</span>{% endif %}</label>
+    {{ field }}
+    {% if field.help_text %}<p class="help">{{ field.help_text|safe }}</p>{% endif %}
+    {{ field.errors }}
+  </div>
+{% endif %}

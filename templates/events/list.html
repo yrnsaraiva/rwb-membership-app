@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% load rwb %}
+{% block title %}Eventos{% endblock %}
+{% block content %}
+<div class="flex items-end justify-between mb-5">
+  <div>
+    <p class="eyebrow">Agenda do clube</p>
+    <h1 class="text-4xl font-semibold">Eventos</h1>
+  </div>
+</div>
+
+<div class="tabs mb-3">
+  <a href="{% qs tab='proximos' page='' %}" class="tab {% if tab != 'passados' %}is-active{% endif %}">Próximos</a>
+  <a href="{% qs tab='passados' page='' %}" class="tab {% if tab == 'passados' %}is-active{% endif %}">Passados</a>
+</div>
+<div class="flex gap-2 overflow-x-auto pb-1 mb-4" style="scrollbar-width:none">
+  <a href="{% qs tipo='' page='' %}" class="chip {% if not kind %}chip-brand{% endif %}">Todos</a>
+  {% for value, label in kinds %}
+    <a href="{% qs tipo=value page='' %}" class="chip whitespace-nowrap {% if kind == value %}chip-brand{% endif %}">{{ label }}</a>
+  {% endfor %}
+</div>
+
+<div class="space-y-3">
+  {% for event in page %}
+    {% if event.pk in my_event_ids %}
+      {% include "partials/event_card.html" with event=event registered=True %}
+    {% else %}
+      {% include "partials/event_card.html" with event=event registered=False %}
+    {% endif %}
+  {% empty %}
+    <div class="card card-pad text-center py-12">
+      <div class="mx-auto w-12 h-12 rounded-full bg-surface2 grid place-items-center text-muted mb-3">{% include "icons/calendar.svg" %}</div>
+      <p class="font-medium">Nenhum evento aqui</p>
+      <p class="text-sm text-muted mt-1">{% if tab == 'passados' %}Ainda não há eventos passados.{% else %}Novos eventos serão publicados em breve.{% endif %}</p>
+    </div>
+  {% endfor %}
+</div>
+{% include "partials/pagination.html" %}
+{% endblock %}

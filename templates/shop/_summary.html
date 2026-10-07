@@ -1,0 +1,7 @@
+{% load rwb %}
+<div class="space-y-2 text-sm">
+  <div class="flex justify-between"><span class="text-muted">Subtotal</span><span class="tabular">{{ summary.subtotal|mzn }}</span></div>
+  {% if summary.discount %}<div class="flex justify-between text-accent"><span>Desconto premium</span><span class="tabular">−{{ summary.discount|mzn }}</span></div>{% endif %}
+  <div class="flex justify-between"><span class="text-muted">Entrega</span><span class="tabular" data-delivery-line>{% if summary.delivery_fee %}{{ summary.delivery_fee|mzn }}{% else %}Grátis{% endif %}</span></div>
+  <div class="flex justify-between items-baseline border-t border-line pt-3 mt-3"><span class="font-semibold">Total</span><span class="price text-2xl" data-total>{{ summary.total|mzn }}</span></div>
+</div>

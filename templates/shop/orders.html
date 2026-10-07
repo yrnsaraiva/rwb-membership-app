@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% load rwb %}
+{% block title %}As minhas encomendas{% endblock %}
+{% block content %}
+<a href="{% url 'accounts:profile' %}" class="text-sm text-muted inline-flex items-center gap-1 mb-3">{% include "icons/chevron-left.svg" with cls="w-4 h-4" %} Perfil</a>
+<h1 class="text-4xl font-semibold mb-5">Encomendas</h1>
+<div class="space-y-3">
+  {% for order in orders %}
+    <a href="{{ order.get_absolute_url }}" class="card card-link card-pad flex items-center gap-3">
+      <span class="w-10 h-10 rounded-xl bg-surface2 grid place-items-center text-muted flex-none">{% include "icons/package.svg" %}</span>
+      <span class="flex-1 min-w-0">
+        <span class="font-semibold block">{{ order.number }} <span class="text-muted font-normal">· {{ order.created_at|date:"j M Y" }}</span></span>
+        <span class="text-sm text-muted truncate block">{{ order.item_count }} artigo{{ order.item_count|pluralize }} · {{ order.total_mzn|mzn }}</span>
+      </span>
+      <span class="chip {% if order.status == 'pending' %}chip-warn{% elif order.status == 'cancelled' %}chip-danger{% elif order.status == 'completed' %}{% else %}chip-brand{% endif %} whitespace-nowrap">{{ order.get_status_display }}</span>
+    </a>
+  {% empty %}
+    <div class="card card-pad text-center py-10">
+      <p class="font-medium">Ainda não fizeste encomendas</p>
+      <a href="{% url 'shop:list' %}" class="btn btn-primary mt-4">Ver a loja</a>
+    </div>
+  {% endfor %}
+</div>
+{% endblock %}

@@ -1,0 +1,35 @@
+{% extends "panel/_base.html" %}
+{% load rwb %}
+{% block title %}Eventos · Painel{% endblock %}
+{% block panel %}
+<div class="flex items-center justify-between gap-3 mb-4">
+  <h1 class="text-3xl font-semibold">Eventos</h1>
+  <a href="{% url 'panel:event_create' %}" class="btn btn-primary btn-sm">{% include "icons/plus.svg" with cls="w-4 h-4" %} Novo evento</a>
+</div>
+<div class="tabs mb-4 max-w-xs">
+  <a href="?tab=proximos" class="tab {% if tab != 'passados' %}is-active{% endif %}">Próximos</a>
+  <a href="?tab=passados" class="tab {% if tab == 'passados' %}is-active{% endif %}">Passados</a>
+</div>
+<div class="card table-wrap">
+  <table class="table">
+    <thead><tr><th>Evento</th><th>Data</th><th class="hidden md:table-cell">Local</th><th>Inscritos</th><th>Estado</th><th></th></tr></thead>
+    <tbody>
+      {% for e in page %}
+        <tr>
+          <td><a href="{% url 'panel:event_registrations' e.pk %}" class="font-medium hover:text-accent">{{ e.title }}</a><p class="text-xs text-muted">{{ e.get_kind_display }}</p></td>
+          <td class="whitespace-nowrap tabular">{{ e.starts_at|date:"d/m/Y H:i" }}</td>
+          <td class="hidden md:table-cell text-muted">{{ e.location }}</td>
+          <td class="tabular">{{ e.confirmed_total }}{% if e.capacity %} / {{ e.capacity }}{% endif %}</td>
+          <td>{% if e.is_published %}<span class="chip chip-brand">Publicado</span>{% else %}<span class="chip">Rascunho</span>{% endif %}</td>
+          <td class="text-right whitespace-nowrap">
+            <a href="{% url 'panel:event_edit' e.pk %}" class="btn btn-ghost btn-sm" aria-label="Editar">{% include "icons/edit.svg" with cls="w-4 h-4" %}</a>
+          </td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="6" class="text-center text-muted py-8">Nenhum evento.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% include "partials/pagination.html" %}
+{% endblock %}

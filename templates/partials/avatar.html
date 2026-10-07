@@ -1,0 +1,4 @@
+{% comment %}Uso: {% include "partials/avatar.html" with u=user size="w-10 h-10 text-sm" %}{% endcomment %}
+<span class="avatar {{ size|default:'w-10 h-10 text-sm' }}">
+  {% if u.avatar %}<img src="{{ u.avatar.url }}" alt="" loading="lazy">{% else %}{{ u.initials }}{% endif %}
+</span>

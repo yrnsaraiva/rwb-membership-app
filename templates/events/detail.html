@@ -1,0 +1,128 @@
+{% extends "base.html" %}
+{% load rwb %}
+{% block title %}{{ event.title }}{% endblock %}
+{% block description %}{{ event.summary|default:event.title }} — {{ event.starts_at|date:"j \d\e F, H:i" }} · {{ event.location }}{% endblock %}
+{% block content %}
+<a href="{% url 'events:list' %}" class="text-sm text-muted inline-flex items-center gap-1 mb-3">{% include "icons/chevron-left.svg" with cls="w-4 h-4" %} Eventos</a>
+
+<div class="rounded-[20px] overflow-hidden border border-line aspect-[16/9] {% if not event.cover %}cover-fallback{% endif %} relative">
+  {% if event.cover %}<img src="{{ event.cover.url }}" alt="" class="w-full h-full object-cover">{% endif %}
+  <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-black/10 to-transparent"></div>
+  <div class="absolute left-4 right-4 bottom-4">
+    <div class="flex gap-2 mb-2 flex-wrap">
+      <span class="chip">{{ event.get_kind_display }}</span>
+      {% if event.members_only %}<span class="chip chip-warn">Exclusivo premium</span>{% endif %}
+      {% if not event.is_published %}<span class="chip chip-danger">Rascunho</span>{% endif %}
+    </div>
+    <h1 class="text-3xl sm:text-4xl font-semibold text-white">{{ event.title }}</h1>
+  </div>
+</div>
+
+<section class="grid grid-cols-2 gap-3 mt-4">
+  <div class="card card-pad">
+    <p class="stat-label flex items-center gap-1.5">{% include "icons/calendar.svg" with cls="w-3.5 h-3.5" %} Quando</p>
+    <p class="font-semibold mt-1.5 capitalize">{{ event.starts_at|date:"l, j M" }}</p>
+    <p class="text-sm text-muted">{{ event.starts_at|date:"H:i" }}{% if event.ends_at %} – {{ event.ends_at|date:"H:i" }}{% endif %}</p>
+  </div>
+  <div class="card card-pad">
+    <p class="stat-label flex items-center gap-1.5">{% include "icons/pin.svg" with cls="w-3.5 h-3.5" %} Onde</p>
+    <p class="font-semibold mt-1.5 truncate">{{ event.location }}</p>
+    {% if event.map_url %}<a href="{{ event.map_url }}" target="_blank" rel="noopener" class="text-sm text-accent">Abrir mapa →</a>{% elif event.meeting_point %}<p class="text-sm text-muted truncate">{{ event.meeting_point }}</p>{% endif %}
+  </div>
+  {% if event.distances %}
+  <div class="card card-pad">
+    <p class="stat-label flex items-center gap-1.5">{% include "icons/route.svg" with cls="w-3.5 h-3.5" %} Distâncias</p>
+    <p class="font-semibold mt-1.5">{{ event.distances }}</p>
+  </div>
+  {% endif %}
+  <div class="card card-pad">
+    <p class="stat-label flex items-center gap-1.5">{% include "icons/users.svg" with cls="w-3.5 h-3.5" %} Vagas</p>
+    {% if event.capacity %}
+      <p class="font-semibold mt-1.5 tabular">{% if event.is_full %}<span class="text-danger">Esgotado</span>{% else %}{{ event.spots_left }} de {{ event.capacity }}{% endif %}</p>
+      <div class="progress mt-2 {% if event.spots_left <= 5 %}is-hot{% endif %}"><span style="width: {% widthratio event.confirmed_total event.capacity 100 %}%"></span></div>
+    {% else %}
+      <p class="font-semibold mt-1.5">Sem limite</p>
+      <p class="text-sm text-muted">{{ event.confirmed_total }} inscrito{{ event.confirmed_total|pluralize }}</p>
+    {% endif %}
+  </div>
+  {% if event.price_mzn %}
+  <div class="card card-pad">
+    <p class="stat-label">Preço</p>
+    <p class="font-semibold mt-1.5">{{ event.price_mzn|mzn }}</p>
+    <p class="text-xs text-muted">Pagamento no local / ao clube</p>
+  </div>
+  {% endif %}
+  <div class="card card-pad">
+    <p class="stat-label flex items-center gap-1.5">{% include "icons/bolt.svg" with cls="w-3.5 h-3.5" %} Presença</p>
+    <p class="font-semibold mt-1.5 text-accent">+{{ event.effective_checkin_points }} pts</p>
+  </div>
+</section>
+
+{% if event.summary or event.description %}
+<section class="mt-6">
+  {% if event.summary %}<p class="text-lg font-medium mb-3">{{ event.summary }}</p>{% endif %}
+  <div class="prose-rwb">{{ event.description|linebreaks }}</div>
+</section>
+{% endif %}
+
+<section class="card card-pad mt-6">
+  {% if registration and registration.is_active %}
+    <div class="flex items-center gap-3">
+      <span class="w-10 h-10 rounded-full grid place-items-center bg-brand-tint text-accent">{% include "icons/check.svg" %}</span>
+      <div class="flex-1">
+        <p class="font-semibold">Estás inscrito{% if registration.distance %} · {{ registration.distance }}{% endif %}</p>
+        <p class="text-sm text-muted">{% if registration.checked_in_at %}Presença confirmada. Bom trabalho!{% else %}Mostra o teu cartão QR à chegada.{% endif %}</p>
+      </div>
+    </div>
+    <div class="flex gap-3 mt-4">
+      <a href="{% url 'events:ics' event.slug %}" class="btn btn-ghost flex-1">{% include "icons/calendar.svg" with cls="w-4 h-4" %} Calendário</a>
+      {% if not event.is_past and not registration.checked_in_at %}
+      <form method="post" action="{% url 'events:cancel' event.slug %}" class="flex-1" data-confirm="Cancelar a inscrição? A vaga fica disponível para outro membro.">
+        {% csrf_token %}
+        <button class="btn btn-danger btn-block">Cancelar inscrição</button>
+      </form>
+      {% endif %}
+    </div>
+  {% elif event.is_past %}
+    <p class="text-muted text-center">Este evento já aconteceu.</p>
+  {% elif not user.is_authenticated %}
+    <p class="font-semibold">Queres participar?</p>
+    <p class="text-sm text-muted mb-4">Entra ou cria a tua conta de membro (grátis) para te inscreveres.</p>
+    <div class="flex gap-3">
+      <a href="{% url 'accounts:login' %}?next={{ request.path|urlencode }}" class="btn btn-ghost flex-1">Entrar</a>
+      <a href="{% url 'accounts:register' %}" class="btn btn-primary flex-1">Criar conta</a>
+    </div>
+  {% elif event.is_full %}
+    <p class="font-semibold text-danger">Evento esgotado</p>
+    <p class="text-sm text-muted">Se alguém cancelar, a vaga volta a ficar disponível aqui.</p>
+  {% elif not event.registration_is_open %}
+    <p class="font-semibold">Inscrições fechadas</p>
+    <p class="text-sm text-muted">{% if event.registration_opens_later %}Abrem a {{ event.registration_opens_at|date:"j M, H:i" }}.{% else %}O período de inscrição terminou.{% endif %}</p>
+  {% elif event.members_only and not user.is_premium %}
+    <p class="font-semibold">Exclusivo para membros premium</p>
+    <p class="text-sm text-muted mb-4">Torna-te premium para teres acesso a este e outros eventos exclusivos.</p>
+    <a href="{% url 'billing:plans' %}" class="btn btn-primary btn-block">Ver planos premium</a>
+  {% else %}
+    <form method="post" action="{% url 'events:register' event.slug %}" class="space-y-4">
+      {% csrf_token %}
+      {% if distances|length > 1 %}
+        <fieldset>
+          <legend class="label mb-2">Escolhe a distância</legend>
+          <div class="grid gap-2" style="grid-template-columns: repeat({{ distances|length }}, minmax(0, 1fr))">
+            {% for d in distances %}
+              <label class="cursor-pointer">
+                <input type="radio" name="distance" value="{{ d }}" class="peer sr-only" {% if forloop.first %}checked{% endif %}>
+                <span class="block text-center py-3 rounded-xl border border-line bg-surface2 font-semibold peer-checked:border-brand peer-checked:text-accent">{{ d }}</span>
+              </label>
+            {% endfor %}
+          </div>
+        </fieldset>
+      {% elif distances %}
+        <input type="hidden" name="distance" value="{{ distances.0 }}">
+      {% endif %}
+      <button type="submit" class="btn btn-primary btn-block">Confirmar inscrição</button>
+      <p class="text-xs text-muted text-center">Recebes a confirmação por email.</p>
+    </form>
+  {% endif %}
+</section>
+{% endblock %}

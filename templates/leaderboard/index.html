@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% load rwb %}
+{% block title %}Ranking{% endblock %}
+{% block content %}
+<p class="eyebrow">Classificação</p>
+<h1 class="text-4xl font-semibold mb-5">Ranking</h1>
+
+<div class="tabs mb-2">
+  {% for key, label in periods.items %}<a href="{% qs periodo=key %}" class="tab {% if period == key %}is-active{% endif %}">{{ label }}</a>{% endfor %}
+</div>
+<div class="flex gap-2 mb-6">
+  {% for key, label in metrics.items %}<a href="{% qs metrica=key %}" class="chip {% if metric == key %}chip-brand{% endif %}">{{ label }}</a>{% endfor %}
+</div>
+
+{% if rows %}
+  {# Pódio #}
+  <section class="grid grid-cols-3 gap-2 items-end mb-6">
+    {% for pos, row in podium %}
+      <div class="card text-center px-2 row-start-1 {% if pos == 1 %}col-start-2 podium-1 pt-5 pb-4{% elif pos == 2 %}col-start-1 pt-4 pb-3{% else %}col-start-3 pt-4 pb-3{% endif %} {% if user.is_authenticated and row.user_id == user.pk %}is-me{% endif %}">
+        <div class="mx-auto mb-2 w-fit relative">
+          <span class="avatar {% if pos == 1 %}w-16 h-16 text-lg{% else %}w-12 h-12 text-sm{% endif %}">{% if row.avatar_url %}<img src="{{ row.avatar_url }}" alt="">{% else %}{{ row.initials }}{% endif %}</span>
+          <span class="absolute -bottom-1 -right-1 w-6 h-6 rounded-full grid place-items-center text-xs font-bold {% if pos == 1 %}bg-brand text-brand-ink{% else %}bg-line{% endif %}">{{ row.rank }}</span>
+        </div>
+        <p class="font-semibold text-sm truncate">{{ row.name }}</p>
+        <p class="font-display text-xl {% if pos == 1 %}text-accent{% endif %} tabular">{% if metric == 'km' %}{{ row.score|km }}<span class="text-xs text-muted font-sans normal-case"> km</span>{% else %}{{ row.score|num }}<span class="text-xs text-muted font-sans normal-case"> pts</span>{% endif %}</p>
+      </div>
+    {% endfor %}
+  </section>
+
+  {% if rest %}
+  <section class="card divider">
+    {% for row in rest %}
+      <div class="flex items-center gap-3 px-4 py-3 {% if user.is_authenticated and row.user_id == user.pk %}is-me{% endif %}">
+        <span class="rank-badge">{{ row.rank }}</span>
+        <span class="avatar w-9 h-9 text-xs">{% if row.avatar_url %}<img src="{{ row.avatar_url }}" alt="" loading="lazy">{% else %}{{ row.initials }}{% endif %}</span>
+        <span class="flex-1 min-w-0">
+          <span class="font-medium truncate block">{{ row.name }}{% if user.is_authenticated and row.user_id == user.pk %} <span class="text-accent text-xs">(tu)</span>{% endif %}</span>
+          <span class="text-xs text-muted">{{ row.member_number }}</span>
+        </span>
+        <span class="font-display text-lg tabular">{% if metric == 'km' %}{{ row.score|km }}<span class="text-xs text-muted font-sans normal-case"> km</span>{% else %}{{ row.score|num }}<span class="text-xs text-muted font-sans normal-case"> pts</span>{% endif %}</span>
+      </div>
+    {% endfor %}
+  </section>
+  {% endif %}
+
+  {% if user.is_authenticated %}
+    <div class="card card-pad mt-4 flex items-center gap-3 text-sm">
+      {% include "icons/trophy.svg" with cls="w-5 h-5 text-accent" %}
+      {% if me %}<span>Estás em <strong class="text-fg">{{ me.rank }}.º lugar</strong>. Continua assim!</span>
+      {% elif user.show_on_leaderboard %}<span class="text-muted">Ainda não entraste no ranking deste período. Regista uma corrida!</span>
+      {% else %}<span class="text-muted">Escolheste não aparecer no ranking. Podes mudar isto em <a class="text-accent" href="{% url 'accounts:profile_edit' %}">Editar perfil</a>.</span>{% endif %}
+    </div>
+  {% endif %}
+{% else %}
+  <div class="card card-pad text-center py-12">
+    <div class="mx-auto w-12 h-12 rounded-full bg-surface2 grid place-items-center text-muted mb-3">{% include "icons/trophy.svg" %}</div>
+    <p class="font-medium">O ranking deste período ainda está vazio</p>
+    <p class="text-sm text-muted mt-1">Sê o primeiro a pontuar!</p>
+    {% if user.is_authenticated %}<a href="{% url 'activity:run_create' %}" class="btn btn-primary mt-5">Registar corrida</a>{% endif %}
+  </div>
+{% endif %}
+{% endblock %}

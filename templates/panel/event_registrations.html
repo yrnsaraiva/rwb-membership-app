@@ -1,0 +1,52 @@
+{% extends "panel/_base.html" %}
+{% block title %}Inscritos · {{ event.title }}{% endblock %}
+{% block panel %}
+<a href="{% url 'panel:events' %}" class="text-sm text-muted inline-flex items-center gap-1 mb-3">{% include "icons/chevron-left.svg" with cls="w-4 h-4" %} Eventos</a>
+<div class="flex flex-col sm:flex-row sm:items-end justify-between gap-3 mb-5">
+  <div>
+    <p class="eyebrow">{{ event.starts_at|date:"l, j \d\e F · H:i" }} · {{ event.location }}</p>
+    <h1 class="text-3xl font-semibold">{{ event.title }}</h1>
+  </div>
+  <div class="flex gap-2">
+    <a href="{% url 'panel:event_edit' event.pk %}" class="btn btn-ghost btn-sm">{% include "icons/edit.svg" with cls="w-4 h-4" %} Editar</a>
+    <a href="?formato=csv" class="btn btn-ghost btn-sm">{% include "icons/download.svg" with cls="w-4 h-4" %} CSV</a>
+  </div>
+</div>
+<section class="grid grid-cols-3 gap-3 mb-4">
+  <div class="card card-pad"><p class="stat-label">Inscritos</p><p class="stat-value mt-2 !text-2xl">{{ event.confirmed_total }}{% if event.capacity %}<span class="stat-unit">/ {{ event.capacity }}</span>{% endif %}</p></div>
+  <div class="card card-pad"><p class="stat-label">Presenças</p><p class="stat-value mt-2 !text-2xl text-accent">{{ checked_in }}</p></div>
+  <div class="card card-pad"><p class="stat-label">Vagas</p><p class="stat-value mt-2 !text-2xl">{% if event.capacity %}{{ event.spots_left }}{% else %}∞{% endif %}</p></div>
+</section>
+<p class="text-sm text-muted mb-3">Dica: à entrada, lê o QR do cartão do membro com a câmara do telemóvel (sessão de staff iniciada) para marcar presença directamente.</p>
+<form method="get" class="mb-3 max-w-sm"><input class="input !min-h-[40px]" type="search" name="q" value="{{ q }}" placeholder="Procurar inscrito"></form>
+<div class="card table-wrap">
+  <table class="table">
+    <thead><tr><th>Membro</th><th>Nº sócio</th><th>Distância</th><th>Estado</th><th class="text-right">Presença</th></tr></thead>
+    <tbody>
+      {% for r in registrations %}
+        <tr class="{% if not r.is_active %}opacity-50{% endif %}">
+          <td><a href="{% url 'panel:member_detail' r.user_id %}" class="font-medium">{{ r.user.display_name }}</a><p class="text-xs text-muted">{{ r.user.phone|default:r.user.email }}</p></td>
+          <td class="tabular">{{ r.user.member_number }}</td>
+          <td>{{ r.distance|default:"—" }}</td>
+          <td>{% if r.is_active %}<span class="chip">Confirmada</span>{% else %}<span class="chip chip-danger">Cancelada</span>{% endif %}</td>
+          <td class="text-right">
+            {% if r.is_active %}
+              <form method="post" action="{% url 'panel:registration_checkin' r.pk %}">
+                {% csrf_token %}
+                <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                {% if r.checked_in_at %}
+                  <button class="btn btn-ghost btn-sm" title="Clique para desfazer">{% include "icons/check.svg" with cls="w-4 h-4 text-accent" %} {{ r.checked_in_at|date:"H:i" }}</button>
+                {% else %}
+                  <button class="btn btn-primary btn-sm">Marcar</button>
+                {% endif %}
+              </form>
+            {% endif %}
+          </td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="5" class="text-center text-muted py-8">Sem inscrições.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

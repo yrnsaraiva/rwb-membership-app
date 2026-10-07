@@ -1,0 +1,123 @@
+{% extends "base.html" %}
+{% load rwb %}
+{% block title %}Dashboard{% endblock %}
+{% block content %}
+<section class="flex items-center justify-between gap-3">
+  <div class="min-w-0">
+    <p class="eyebrow">{% now "l, j \d\e F" %}</p>
+    <h1 class="text-3xl sm:text-4xl font-semibold truncate">Olá, {{ user.first_name|default:user.display_name }}</h1>
+  </div>
+  <a href="{% url 'accounts:profile' %}">{% include "partials/avatar.html" with u=user size="w-12 h-12 text-base" %}</a>
+</section>
+
+{# Streak ------------------------------------------------------------------ #}
+<section class="card mt-5 p-4 flex items-center gap-4 {% if stats.current_streak %}border-brand{% endif %}">
+  <div class="w-14 h-14 rounded-2xl grid place-items-center flex-none {% if stats.current_streak %}bg-brand-tint text-accent{% else %}bg-surface2 text-muted{% endif %}">
+    {% include "icons/flame.svg" with cls="w-7 h-7" %}
+  </div>
+  <div class="flex-1 min-w-0">
+    <p class="font-display text-3xl font-semibold leading-none">{{ stats.current_streak }} <span class="text-base text-muted font-sans normal-case">dia{{ stats.current_streak|pluralize }} seguidos</span></p>
+    <p class="text-sm text-muted mt-1">
+      {% if stats.ran_today %}Já correste hoje. A sequência está garantida 🔥
+      {% elif stats.current_streak %}Corre hoje para não perder a sequência!
+      {% else %}Regista uma corrida para começar uma nova sequência.{% endif %}
+    </p>
+  </div>
+  {% if not stats.ran_today %}<a href="{% url 'activity:run_create' %}" class="btn btn-primary btn-sm">Registar</a>{% endif %}
+</section>
+
+{# KPIs ------------------------------------------------------------------------ #}
+<section class="grid grid-cols-2 gap-3 mt-3">
+  <div class="card card-pad">
+    <p class="stat-label">Distância total</p>
+    <p class="stat-value mt-2">{{ stats.total_km|km }}<span class="stat-unit">km</span></p>
+    <p class="text-xs text-muted mt-1.5">{{ stats.month_km|km }} km este mês</p>
+  </div>
+  <div class="card card-pad">
+    <p class="stat-label">Pontos</p>
+    <p class="stat-value mt-2 text-accent">{{ stats.points|num }}</p>
+    <p class="text-xs text-muted mt-1.5">+{{ stats.month_points|num }} este mês</p>
+  </div>
+  <div class="card card-pad">
+    <p class="stat-label">Corridas</p>
+    <p class="stat-value mt-2">{{ stats.total_runs }}</p>
+    <p class="text-xs text-muted mt-1.5">{{ stats.total_time_display }} a correr</p>
+  </div>
+  <div class="card card-pad">
+    <p class="stat-label">Ritmo médio</p>
+    <p class="stat-value mt-2">{{ stats.avg_pace_display }}<span class="stat-unit">/km</span></p>
+    <p class="text-xs text-muted mt-1.5">Melhor streak: {{ stats.longest_streak }} dias</p>
+  </div>
+</section>
+
+{# Gráfico semanal ------------------------------------------------------------------- #}
+<section class="card card-pad mt-3" data-chart-tabs>
+  <div class="flex items-center justify-between mb-4 gap-3">
+    <h2 class="text-lg font-semibold">Atividade</h2>
+    <div class="tabs !p-0.5 text-xs">
+      <button type="button" class="tab !py-1.5 !px-3 is-active" data-chart-tab="week">Semana</button>
+      <button type="button" class="tab !py-1.5 !px-3" data-chart-tab="trend">8 semanas</button>
+    </div>
+  </div>
+  <div data-chart="week">
+    <div class="bars" role="img" aria-label="Quilómetros por dia nesta semana">
+      {% for d in week %}
+        <div class="bar-col {% if d.is_today %}is-today{% endif %}">
+          <span class="bar-value">{% if d.km %}{{ d.km|km }}{% endif %}</span>
+          <div class="bar-track"><div class="bar {% if d.km %}has-value{% endif %}" style="height: {{ d.height|default:0 }}%"></div></div>
+          <span class="bar-label">{{ d.label }}</span>
+        </div>
+      {% endfor %}
+    </div>
+  </div>
+  <div data-chart="trend" hidden>
+    <div class="bars" role="img" aria-label="Quilómetros por semana nas últimas 8 semanas">
+      {% for w in trend %}
+        <div class="bar-col {% if w.is_today %}is-today{% endif %}">
+          <span class="bar-value">{% if w.km %}{{ w.km|km:0 }}{% endif %}</span>
+          <div class="bar-track"><div class="bar {% if w.km %}has-value{% endif %}" style="height: {{ w.height|default:0 }}%"></div></div>
+          <span class="bar-label !text-[0.6rem]">{{ w.label }}</span>
+        </div>
+      {% endfor %}
+    </div>
+  </div>
+</section>
+
+{# Eventos inscritos ------------------------------------------------------------------- #}
+<section class="mt-7">
+  <div class="flex items-end justify-between mb-3">
+    <h2 class="text-xl font-semibold">Os meus eventos</h2>
+    <a href="{% url 'events:list' %}" class="text-sm text-muted hover:text-fg">Explorar →</a>
+  </div>
+  <div class="space-y-3">
+    {% for reg in upcoming %}
+      {% include "partials/event_card.html" with event=reg.event registered=True %}
+    {% empty %}
+      <a href="{% url 'events:list' %}" class="card card-link card-pad flex items-center gap-3">
+        <span class="w-10 h-10 rounded-full bg-surface2 grid place-items-center text-muted">{% include "icons/calendar.svg" %}</span>
+        <span class="flex-1"><span class="font-medium block">Ainda sem inscrições</span><span class="text-sm text-muted">Vê os próximos eventos do clube</span></span>
+        {% include "icons/chevron-right.svg" with cls="w-5 h-5 text-muted" %}
+      </a>
+    {% endfor %}
+  </div>
+</section>
+
+{# Corridas recentes ------------------------------------------------------------------- #}
+<section class="mt-7">
+  <div class="flex items-end justify-between mb-3">
+    <h2 class="text-xl font-semibold">Últimas corridas</h2>
+    {% if recent_runs %}<a href="{% url 'activity:run_list' %}" class="text-sm text-muted hover:text-fg">Histórico →</a>{% endif %}
+  </div>
+  {% if recent_runs %}
+    <div class="card divider">
+      {% for run in recent_runs %}{% include "activity/_run_row.html" %}{% endfor %}
+    </div>
+  {% else %}
+    <div class="card card-pad text-center py-10">
+      <p class="font-medium">Nenhuma corrida registada</p>
+      <p class="text-sm text-muted mt-1 mb-4">Cada km vale {{ points_per_km|default:10 }} pontos.</p>
+      <a href="{% url 'activity:run_create' %}" class="btn btn-primary">{% include "icons/plus.svg" with cls="w-4 h-4" %} Registar primeira corrida</a>
+    </div>
+  {% endif %}
+</section>
+{% endblock %}

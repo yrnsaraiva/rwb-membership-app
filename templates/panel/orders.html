@@ -1,0 +1,63 @@
+{% extends "panel/_base.html" %}
+{% load rwb %}
+{% block title %}Loja · Painel{% endblock %}
+{% block panel %}
+<div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-1">
+  <h1 class="text-3xl font-semibold">Encomendas da loja</h1>
+  <a href="{% url 'admin:shop_product_changelist' %}" class="btn btn-ghost btn-sm">{% include "icons/bag.svg" with cls="w-4 h-4" %} Produtos e stock ↗</a>
+</div>
+<p class="text-sm text-muted mb-4">Confirma o pagamento (M-Pesa, transferência ou numerário) e marca a encomenda como paga. Encomendas não pagas são canceladas automaticamente e o stock volta à loja.</p>
+<div class="flex gap-2 overflow-x-auto mb-4" style="scrollbar-width:none">
+  <a href="?estado=abertas" class="chip whitespace-nowrap {% if status == 'abertas' %}chip-brand{% endif %}">Abertas</a>
+  {% for value, label in statuses %}<a href="?estado={{ value }}" class="chip whitespace-nowrap {% if status == value %}chip-brand{% endif %}">{{ label }}</a>{% endfor %}
+  <a href="?estado=todas" class="chip {% if status == 'todas' %}chip-brand{% endif %}">Todas</a>
+</div>
+<div class="space-y-3">
+  {% for o in page %}
+    <div class="card card-pad">
+      <div class="flex flex-col lg:flex-row lg:items-start gap-4">
+        <div class="flex-1 min-w-0">
+          <div class="flex items-center gap-2 flex-wrap">
+            <span class="font-display text-xl font-semibold">{{ o.number }}</span>
+            <span class="chip {% if o.status == 'pending' %}chip-warn{% elif o.status == 'cancelled' %}chip-danger{% elif o.status == 'completed' %}{% else %}chip-brand{% endif %}">{{ o.get_status_display }}</span>
+            <span class="text-xs text-muted">{{ o.created_at|date:"d/m/Y H:i" }}</span>
+          </div>
+          <p class="text-sm mt-1"><a href="{% url 'panel:member_detail' o.user_id %}" class="font-medium underline">{{ o.customer_name }}</a> <span class="text-muted">· {{ o.user.member_number }} · {{ o.phone }}</span></p>
+          <p class="text-sm text-soft mt-2">{% for i in o.items.all %}{{ i.quantity }}× {{ i.product_name }} ({{ i.variant_name }}){% if not forloop.last %}, {% endif %}{% endfor %}</p>
+          <p class="text-xs text-muted mt-1">
+            {{ o.get_fulfilment_display }}{% if o.pickup_event %}: {{ o.pickup_event.title }} ({{ o.pickup_event.starts_at|date:"d/m" }}){% endif %}{% if o.delivery_address %}: {{ o.delivery_address }}{% endif %}
+            {% if o.payment_reference %} · ref. {{ o.payment_reference }}{% endif %}
+          </p>
+          {% if o.notes %}<p class="text-xs mt-1">“{{ o.notes }}”</p>{% endif %}
+        </div>
+        <div class="lg:text-right flex-none">
+          <p class="price text-2xl">{{ o.total_mzn|mzn }}</p>
+          {% if o.discount_mzn %}<p class="text-xs text-accent">premium −{{ o.discount_mzn|mzn }}</p>{% endif %}
+          <div class="flex flex-wrap gap-2 mt-3 lg:justify-end">
+            {% if o.status == 'pending' %}
+              <form method="post" action="{% url 'panel:order_action' o.pk %}" class="flex flex-wrap gap-2 items-center">
+                {% csrf_token %}<input type="hidden" name="action" value="paid"><input type="hidden" name="next" value="{{ request.get_full_path }}">
+                <select name="payment_method" class="input !min-h-[34px] !py-1 !text-sm !w-auto">{% for v, l in methods %}<option value="{{ v }}">{{ l }}</option>{% endfor %}</select>
+                <input name="payment_reference" class="input !min-h-[34px] !py-1 !text-sm !w-32" placeholder="Referência">
+                <button class="btn btn-primary btn-sm">Marcar paga</button>
+              </form>
+            {% endif %}
+            {% if o.status == 'paid' %}
+              <form method="post" action="{% url 'panel:order_action' o.pk %}">{% csrf_token %}<input type="hidden" name="action" value="ready"><input type="hidden" name="next" value="{{ request.get_full_path }}"><button class="btn btn-primary btn-sm">Pronta para entrega</button></form>
+            {% endif %}
+            {% if o.status == 'paid' or o.status == 'ready' %}
+              <form method="post" action="{% url 'panel:order_action' o.pk %}">{% csrf_token %}<input type="hidden" name="action" value="completed"><input type="hidden" name="next" value="{{ request.get_full_path }}"><button class="btn btn-ghost btn-sm">{% include "icons/check.svg" with cls="w-4 h-4" %} Entregue</button></form>
+            {% endif %}
+            {% if o.status != 'completed' and o.status != 'cancelled' %}
+              <form method="post" action="{% url 'panel:order_action' o.pk %}" data-confirm="Cancelar {{ o.number }} e devolver o stock?">{% csrf_token %}<input type="hidden" name="action" value="cancel"><input type="hidden" name="next" value="{{ request.get_full_path }}"><button class="btn btn-danger btn-sm">Cancelar</button></form>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+    </div>
+  {% empty %}
+    <div class="card card-pad text-center text-muted py-10">Sem encomendas neste estado.</div>
+  {% endfor %}
+</div>
+{% include "partials/pagination.html" %}
+{% endblock %}
