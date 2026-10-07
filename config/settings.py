@@ -72,6 +72,7 @@ INSTALLED_APPS = [
     "django.contrib.humanize",
     "rest_framework",
     "rest_framework.authtoken",
+    "drf_spectacular",
     # Módulos do RWB
     "apps.core",
     "apps.accounts",
@@ -223,6 +224,21 @@ REST_FRAMEWORK = {
     ],
     "DEFAULT_THROTTLE_RATES": {"anon": "60/min", "user": "240/min", "login": "10/min"},
     "NUM_PROXIES": TRUSTED_PROXY_COUNT,
+    "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
+}
+
+SPECTACULAR_SETTINGS = {
+    "TITLE": "RunWithBroto API",
+    "DESCRIPTION": (
+        "API REST do clube de corrida RunWithBroto (membros, eventos, corridas, pontos e ranking).\n\n"
+        "**Autenticação:** `POST /api/v1/auth/token/` com `{username: email, password}` devolve um token; "
+        "enviar em todos os pedidos como `Authorization: Token <token>`. Os tokens expiram (ver `expires_in`)."
+    ),
+    "VERSION": "1.0.0",
+    "SERVE_INCLUDE_SCHEMA": False,
+    "SCHEMA_PATH_PREFIX": r"/api/v1",
+    "COMPONENT_SPLIT_REQUEST": True,
+    "SERVERS": [{"url": SITE_URL}],
 }
 API_TOKEN_TTL_DAYS = int(env("API_TOKEN_TTL_DAYS", "30"))  # os tokens da API expiram e são renovados no login
 

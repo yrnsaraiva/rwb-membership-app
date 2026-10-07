@@ -94,3 +94,15 @@ class ApiHardeningTests(TestCase):
         self.assertEqual(post("5.00", 1800).status_code, 400)  # duplicada
         self.assertEqual(post("6.00", 2400).status_code, 201)
         self.assertEqual(post("7.00", 3000).status_code, 400)  # 3.ª no dia
+
+
+class OpenApiTests(TestCase):
+    def test_schema_and_docs_are_served(self):
+        client = APIClient()
+        resp = client.get("/api/v1/schema/", HTTP_ACCEPT="application/vnd.oai.openapi+json")
+        self.assertEqual(resp.status_code, 200)
+        paths = resp.json()["paths"]
+        for path in ("/api/v1/auth/token/", "/api/v1/auth/logout/", "/api/v1/me/", "/api/v1/runs/",
+                     "/api/v1/events/{slug}/register/", "/api/v1/leaderboard/"):
+            self.assertIn(path, paths)
+        self.assertEqual(client.get("/api/v1/docs/").status_code, 200)

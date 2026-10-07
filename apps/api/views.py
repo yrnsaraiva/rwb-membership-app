@@ -4,6 +4,7 @@ from datetime import timedelta
 from django.conf import settings
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
+from drf_spectacular.utils import OpenApiParameter, extend_schema, extend_schema_view
 from rest_framework import mixins, permissions, status, viewsets
 from rest_framework.authtoken.models import Token
 from rest_framework.authtoken.views import ObtainAuthToken
@@ -19,9 +20,22 @@ from apps.events.models import Event, Registration
 from apps.leaderboard.services import get_leaderboard
 
 from .authentication import token_is_expired
-from .serializers import EventSerializer, MemberSerializer, PointTransactionSerializer, RegistrationSerializer, RunSerializer
+from .serializers import (
+    DashboardSerializer,
+    DetailSerializer,
+    EventSerializer,
+    LeaderboardSerializer,
+    MemberSerializer,
+    PointTransactionSerializer,
+    RegistrationSerializer,
+    RunSerializer,
+    TokenRequestSerializer,
+    TokenResponseSerializer,
+)
 
 
+@extend_schema(tags=["Autenticação"], auth=[], request=TokenRequestSerializer, responses={
+    200: TokenResponseSerializer, 400: DetailSerializer, 429: DetailSerializer}, summary="Iniciar sessão (obter token)")
 class TokenView(ObtainAuthToken):
     """POST {username: email, password} → {token, expires_in}. Mesmo rate-limit por email/IP que o login web."""
     throttle_classes = [ScopedRateThrottle]
@@ -46,6 +60,7 @@ class TokenView(ObtainAuthToken):
         return Response({"token": token.key, "expires_in": settings.API_TOKEN_TTL_DAYS * 86400})
 
 
+@extend_schema(tags=["Autenticação"], request=None, responses={204: None}, summary="Terminar sessão (revogar token)")
 @api_view(["POST"])
 @permission_classes([permissions.IsAuthenticated])
 def logout(request):
@@ -55,6 +70,8 @@ def logout(request):
     return Response(status=status.HTTP_204_NO_CONTENT)
 
 
+@extend_schema(tags=["Perfil"], methods=["GET", "PATCH"], request=MemberSerializer, responses=MemberSerializer,
+               summary="Ver ou editar o meu perfil")
 @api_view(["GET", "PATCH"])
 @permission_classes([permissions.IsAuthenticated])
 def me(request):
@@ -66,6 +83,7 @@ def me(request):
     return Response(data)
 
 
+@extend_schema(tags=["Perfil"], responses=DashboardSerializer, summary="Estatísticas, semana e próximos eventos")
 @api_view(["GET"])
 @permission_classes([permissions.IsAuthenticated])
 def dashboard(request):
@@ -82,6 +100,17 @@ def dashboard(request):
     })
 
 
+@extend_schema_view(
+    list=extend_schema(summary="Listar eventos", parameters=[
+        OpenApiParameter("when", str, enum=["past"], description="Omitir para eventos futuros; `past` para passados.")]),
+    retrieve=extend_schema(summary="Detalhe de um evento"),
+    register=extend_schema(summary="Inscrever-me", request={"application/json": {
+        "type": "object", "properties": {"distance": {"type": "string", "example": "10K"}}}},
+        responses={201: RegistrationSerializer, 400: DetailSerializer}),
+    cancel=extend_schema(summary="Cancelar a minha inscrição", request=None,
+                         responses={200: RegistrationSerializer, 400: DetailSerializer}),
+)
+@extend_schema(tags=["Eventos"])
 class EventViewSet(viewsets.ReadOnlyModelViewSet):
     serializer_class = EventSerializer
     lookup_field = "slug"
@@ -123,12 +152,21 @@ class EventViewSet(viewsets.ReadOnlyModelViewSet):
         return Response(RegistrationSerializer(reg).data)
 
 
+@extend_schema_view(
+    list=extend_schema(summary="As minhas corridas"),
+    create=extend_schema(summary="Registar corrida", description="Aplica as regras anti-batota (data, ritmo, limites diários)."),
+    retrieve=extend_schema(summary="Detalhe de uma corrida"),
+    destroy=extend_schema(summary="Apagar corrida (remove os pontos)"),
+)
+@extend_schema(tags=["Corridas e pontos"])
 class RunViewSet(mixins.ListModelMixin, mixins.CreateModelMixin, mixins.RetrieveModelMixin,
                  mixins.DestroyModelMixin, viewsets.GenericViewSet):
     serializer_class = RunSerializer
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
+        if getattr(self, "swagger_fake_view", False):  # geração do esquema OpenAPI
+            return Run.objects.none()
         return Run.objects.filter(user=self.request.user).prefetch_related("point_transactions")
 
     def perform_create(self, serializer):
@@ -142,14 +180,24 @@ class RunViewSet(mixins.ListModelMixin, mixins.CreateModelMixin, mixins.Retrieve
         activity.delete_run(instance)
 
 
+@extend_schema(tags=["Corridas e pontos"], summary="Os meus movimentos de pontos")
 class PointViewSet(viewsets.ReadOnlyModelViewSet):
     serializer_class = PointTransactionSerializer
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
+        if getattr(self, "swagger_fake_view", False):
+            return PointTransaction.objects.none()
         return PointTransaction.objects.filter(user=self.request.user)
 
 
+@extend_schema(
+    tags=["Ranking"], auth=[], responses=LeaderboardSerializer, summary="Ranking (público)",
+    parameters=[
+        OpenApiParameter("period", str, enum=["mes", "geral"], default="mes", description="Período."),
+        OpenApiParameter("metric", str, enum=["pontos", "km"], default="pontos", description="Métrica."),
+    ],
+)
 @api_view(["GET"])
 @permission_classes([permissions.AllowAny])
 def leaderboard(request):

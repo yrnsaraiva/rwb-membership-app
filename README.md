@@ -87,6 +87,8 @@ O arranque corre `migrate` automaticamente e o healthcheck usa `/healthz`.
 
 ### API REST (`/api/v1/`) — base para a app nativa (fase 3)
 
+Documentação interactiva (OpenAPI 3, Swagger UI) em **`/api/v1/docs/`**; o esquema em `/api/v1/schema/` serve para gerar clientes (Swift, Kotlin, TypeScript). Exportar: `python manage.py spectacular --file schema.yml`. O CI valida o esquema sem avisos, por isso novos endpoints têm de ser documentados (`@extend_schema`).
+
 | Método | Endpoint | Descrição |
 |---|---|---|
 | POST | `auth/token/` | `{username: email, password}` → `{token, expires_in}` (usar `Authorization: Token …`). Tem rate-limit por conta/IP; o token expira e é revogado ao mudar a palavra-passe |

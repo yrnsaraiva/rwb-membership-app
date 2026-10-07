@@ -3,6 +3,7 @@ from decimal import Decimal
 
 from django.conf import settings
 from django.utils import timezone
+from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
 
 from apps.accounts.models import User
@@ -22,6 +23,7 @@ class MemberSerializer(serializers.ModelSerializer):
                   "show_on_leaderboard", "avatar_url", "is_premium", "date_joined"]
         read_only_fields = ["id", "member_number", "email", "date_joined"]
 
+    @extend_schema_field(serializers.URLField(allow_null=True))
     def get_avatar_url(self, obj):
         if not obj.avatar:
             return None
@@ -43,6 +45,7 @@ class EventSerializer(serializers.ModelSerializer):
                   "registration_opens_at", "registration_closes_at", "registration_is_open", "price_mzn",
                   "members_only", "is_registered"]
 
+    @extend_schema_field(serializers.BooleanField())
     def get_is_registered(self, obj):
         ids = self.context.get("my_event_ids")
         return obj.pk in ids if ids is not None else False
@@ -99,3 +102,61 @@ class PointTransactionSerializer(serializers.ModelSerializer):
     class Meta:
         model = PointTransaction
         fields = ["id", "amount", "reason", "reason_display", "description", "created_at"]
+
+
+# --- Respostas sem modelo (só para a documentação OpenAPI) -------------------------------
+class TokenRequestSerializer(serializers.Serializer):
+    username = serializers.EmailField(help_text="Email do membro.")
+    password = serializers.CharField(write_only=True)
+
+
+class TokenResponseSerializer(serializers.Serializer):
+    token = serializers.CharField()
+    expires_in = serializers.IntegerField(help_text="Validade do token, em segundos.")
+
+
+class DetailSerializer(serializers.Serializer):
+    detail = serializers.CharField()
+
+
+class StatsSerializer(serializers.Serializer):
+    total_km = serializers.DecimalField(max_digits=10, decimal_places=2)
+    total_runs = serializers.IntegerField()
+    total_time = serializers.IntegerField(help_text="Segundos.")
+    total_time_display = serializers.CharField()
+    month_km = serializers.DecimalField(max_digits=10, decimal_places=2)
+    points = serializers.IntegerField()
+    month_points = serializers.IntegerField()
+    current_streak = serializers.IntegerField()
+    longest_streak = serializers.IntegerField()
+    ran_today = serializers.BooleanField()
+    avg_pace = serializers.IntegerField(allow_null=True, help_text="Segundos por km.")
+    avg_pace_display = serializers.CharField()
+
+
+class WeekDaySerializer(serializers.Serializer):
+    date = serializers.DateField()
+    label = serializers.CharField()
+    km = serializers.DecimalField(max_digits=8, decimal_places=2)
+
+
+class DashboardSerializer(serializers.Serializer):
+    stats = StatsSerializer()
+    week = WeekDaySerializer(many=True)
+    upcoming = RegistrationSerializer(many=True)
+
+
+class LeaderboardRowSerializer(serializers.Serializer):
+    rank = serializers.IntegerField(help_text="Empates partilham o mesmo lugar.")
+    user_id = serializers.IntegerField()
+    name = serializers.CharField()
+    initials = serializers.CharField()
+    member_number = serializers.CharField()
+    avatar_url = serializers.CharField(allow_blank=True)
+    score = serializers.DecimalField(max_digits=12, decimal_places=2)
+
+
+class LeaderboardSerializer(serializers.Serializer):
+    period = serializers.CharField()
+    metric = serializers.CharField()
+    results = LeaderboardRowSerializer(many=True)
