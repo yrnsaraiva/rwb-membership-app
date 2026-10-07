@@ -8,7 +8,7 @@ from django.contrib.admin.views.decorators import staff_member_required
 from django.contrib.auth import get_user_model
 from django.core.paginator import Paginator
 from django.db.models import Q, Sum
-from django.http import HttpResponse
+from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.views.decorators.http import require_http_methods, require_POST
@@ -17,6 +17,7 @@ from apps.activity import services as activity
 from apps.activity.models import PointTransaction, Run
 from apps.billing.models import Subscription
 from apps.events import services as event_services
+from apps.events import ticket_checkin
 from apps.events.models import Event, Registration
 from apps.shop import services as shop_services
 from apps.shop.models import Order
@@ -342,3 +343,24 @@ def order_action(request, pk):
         messages.error(request, str(exc))
     next_url = request.POST.get("next", "")
     return redirect(next_url if next_url.startswith("/") and not next_url.startswith("//") else "panel:orders")
+
+
+# --- Entrada de bilhetes da ETK -----------------------------------------------------------------
+@require_POST
+def ticket_scan(request):
+    """Leitor de QR à porta: bilhete `TCKT…|assinatura` → entrada na ETK + presença/pontos do membro. Responde em JSON."""
+    if not (request.user.is_authenticated and request.user.is_staff):
+        return JsonResponse({"result": "error", "message": "Sem permissão."}, status=403)
+    outcome = ticket_checkin.check_in_by_qr(request.POST.get("qrValue", ""))
+    return JsonResponse(outcome.as_dict())
+
+
+@staff_required
+@require_POST
+def ticket_member_checkin(request, pk):
+    """Staff leu o cartão do membro e escolheu o bilhete dele: dá a entrada pelo bilhete que a ETK tem."""
+    member = get_object_or_404(User, pk=pk)
+    outcome = ticket_checkin.check_in_member_ticket(member, request.POST.get("ticket_id", ""))
+    text = f"{outcome.message} — {member.display_name}" + (f" (+{outcome.points} pts)" if outcome.points else "")
+    (messages.success if outcome.admitted else messages.error)(request, text)
+    return redirect(member.get_verify_url())

@@ -35,7 +35,7 @@ def envelope(*events):
 def fake_get(body, status=200):
     resp = mock.Mock(status_code=status)
     resp.json.return_value = body
-    return mock.patch("apps.events.etk.requests.get", return_value=resp)
+    return mock.patch("apps.events.etk.requests.request", return_value=resp)
 
 
 @override_settings(**ETK)
@@ -45,7 +45,7 @@ class SyncTests(TestCase):
             result = etk.sync_events()
         self.assertEqual((result.created, result.updated), (1, 0))
         call = get.call_args
-        self.assertEqual(call.args[0], "https://etk.example/back/borrow/external/events")
+        self.assertEqual(call.args[:2], ("GET", "https://etk.example/back/borrow/external/events"))
         self.assertEqual(call.kwargs["headers"]["Authorization"], "Bearer etk_live_x")
         e = Event.objects.get()
         self.assertEqual((e.external_id, e.title, e.kind, e.location), ("EVNT1", "Evento 1", "group_run", "Marginal, Maputo"))
@@ -115,7 +115,7 @@ class SyncTests(TestCase):
                        {"body": {"status": "success", "data": "x"}}):
             with fake_get(**kwargs), self.assertRaises(etk.EtkError):
                 etk.sync_events()
-        with mock.patch("apps.events.etk.requests.get", side_effect=requests.ConnectionError("down")), \
+        with mock.patch("apps.events.etk.requests.request", side_effect=requests.ConnectionError("down")), \
                 self.assertRaises(etk.EtkError):
             etk.sync_events()
         self.assertTrue(Event.objects.get().is_published)

@@ -45,13 +45,13 @@ class SyncResult:
         return f"{self.created} criado(s), {self.updated} atualizado(s), {self.unpublished} despublicado(s){extra}"
 
 
-def fetch_events() -> list:
+def _request(method, path, *, params=None, json=None, timeout=None):
+    """Pedido autenticado à ETK. Devolve o corpo JSON (envelope) ou levanta EtkError."""
     if not settings.ETK_ENABLED:
         raise EtkError("ETK não configurada (defina ETK_BASE e ETK_API_KEY).")
-    url = settings.ETK_BASE + settings.ETK_EVENTS_PATH
     try:
-        resp = requests.get(url, headers={"Authorization": f"Bearer {settings.ETK_API_KEY}", "Accept": "application/json"},
-                            timeout=settings.ETK_TIMEOUT)
+        resp = requests.request(method, settings.ETK_BASE + path, params=params, json=json, timeout=timeout or settings.ETK_TIMEOUT,
+                                headers={"Authorization": f"Bearer {settings.ETK_API_KEY}", "Accept": "application/json"})
     except requests.RequestException as exc:
         raise EtkError(f"Falha de rede ao contactar a ETK: {exc}") from exc
     if resp.status_code in (401, 403):
@@ -62,9 +62,16 @@ def fetch_events() -> list:
         body = resp.json()
     except ValueError as exc:
         raise EtkError("Resposta da ETK não é JSON.") from exc
-    if not isinstance(body, dict) or body.get("status") != "success" or not isinstance(body.get("data"), list):
+    if not isinstance(body, dict) or body.get("status") != "success":
         raise EtkError("Resposta da ETK fora do formato esperado.")
-    return body["data"]
+    return body
+
+
+def fetch_events() -> list:
+    data = _request("GET", settings.ETK_EVENTS_PATH).get("data")
+    if not isinstance(data, list):
+        raise EtkError("Resposta da ETK fora do formato esperado.")
+    return data
 
 
 def _location(data) -> str:
@@ -137,3 +144,29 @@ def sync_events(prune=True) -> SyncResult:
         stale = Event.objects.filter(external_id__isnull=False, is_published=True).exclude(external_id__in=seen)
         result.unpublished = stale.update(is_published=False)
     return result
+
+
+# --- Bilhetes e entrada --------------------------------------------------------------------
+TICKETS_PATH = "/back/borrow/external/tickets"
+
+
+def fetch_paid_tickets(phone=None, event_id=None, timeout=None) -> list:
+    """Bilhetes pagos (ou convites) emitidos com a nossa chave, filtrados por telefone 258… e/ou evento."""
+    params = {"payment": "paid"}
+    if phone:
+        params["phone"] = phone
+    if event_id:
+        params["eventId"] = event_id
+    data = _request("GET", TICKETS_PATH, params=params, timeout=timeout).get("data")
+    if not isinstance(data, list):
+        raise EtkError("Resposta da ETK fora do formato esperado.")
+    return data
+
+
+def check_in_ticket(qr_value: str) -> dict:
+    """Marca a entrada na ETK. Devolve {'result': ok|already_entered|not_paid|not_found|invalid_qr, 'message', 'ticket'}."""
+    body = _request("POST", TICKETS_PATH + "/check-in", json={"qrValue": qr_value})
+    data = body.get("data")
+    if not isinstance(data, dict) or "result" not in data:
+        raise EtkError("Resposta da ETK fora do formato esperado.")
+    return {"result": data["result"], "message": body.get("message", ""), "ticket": data.get("ticket")}

@@ -10,9 +10,17 @@ from rest_framework.views import APIView
 
 from apps.accounts.models import User
 from apps.events import services as event_services
+from apps.events import ticket_checkin
 from apps.events.models import Registration
 
-from .serializers import DetailSerializer, MemberSerializer, StaffMemberCardSerializer, StaffRegistrationSerializer
+from .serializers import (
+    DetailSerializer,
+    MemberSerializer,
+    StaffMemberCardSerializer,
+    StaffRegistrationSerializer,
+    TicketScanResultSerializer,
+    TicketScanSerializer,
+)
 
 
 class IsStaff(permissions.BasePermission):
@@ -64,3 +72,16 @@ class CheckInView(APIView):
         event_services.undo_check_in(reg)
         reg.refresh_from_db()
         return Response(StaffRegistrationSerializer(reg).data)
+
+
+@extend_schema(tags=["Staff"], summary="Dar entrada com bilhete da ETK", request=TicketScanSerializer,
+               description="Valida o bilhete na ETK (marca a entrada lá) e, se o titular for membro (pelo telemóvel/email do bilhete), "
+                           "regista a presença e os pontos no RWB. `result`: ok, already_entered, not_paid, not_found, invalid_qr, error.",
+               responses=TicketScanResultSerializer)
+class TicketCheckInView(APIView):
+    permission_classes = [IsStaff]
+
+    def post(self, request):
+        serializer = TicketScanSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        return Response(ticket_checkin.check_in_by_qr(serializer.validated_data["qrValue"]).as_dict())

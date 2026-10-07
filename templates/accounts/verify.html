@@ -37,6 +37,18 @@
       {% empty %}
         <p class="px-4 pb-4 pt-2 text-sm text-muted">Sem inscrições em eventos nas próximas/últimas 12 horas.</p>
       {% endfor %}
+      {% for t in etk_tickets %}
+        <form method="post" action="{% url 'panel:ticket_member_checkin' member.pk %}" class="flex items-center gap-3 px-4 py-3 border-t border-line">
+          {% csrf_token %}
+          <input type="hidden" name="ticket_id" value="{{ t.id }}">
+          <div class="flex-1 min-w-0">
+            <p class="font-medium truncate">{{ t.event.name }}</p>
+            <p class="text-xs text-muted">Bilhete {{ t.price.name }} · {{ t.event.date|slice:":10" }}</p>
+          </div>
+          <button class="btn btn-primary btn-sm">Dar entrada</button>
+        </form>
+      {% endfor %}
+      {% if etk_error %}<p class="px-4 py-3 border-t border-line text-xs text-muted">Não foi possível consultar os bilhetes na ETK.</p>{% endif %}
       <a href="{% url 'panel:member_detail' member.pk %}" class="block px-4 py-3 border-t border-line text-sm text-muted hover:text-fg">Ver ficha no painel →</a>
     </div>
   {% endif %}

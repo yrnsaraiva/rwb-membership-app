@@ -390,3 +390,17 @@ class PremiumStatusSerializer(serializers.Serializer):
     current = SubscriptionSerializer(allow_null=True)
     pending = SubscriptionSerializer(allow_null=True)
     history = SubscriptionSerializer(many=True)
+
+
+class TicketScanSerializer(serializers.Serializer):
+    qrValue = serializers.CharField(max_length=60, help_text="Conteúdo do QR do bilhete: `TCKT…|assinatura`.")
+
+
+class TicketScanResultSerializer(serializers.Serializer):
+    result = serializers.ChoiceField(choices=["ok", "already_entered", "not_paid", "not_found", "invalid_qr", "error"])
+    message = serializers.CharField()
+    holder = serializers.CharField(allow_blank=True)
+    event = serializers.CharField(allow_blank=True)
+    member = serializers.DictField(allow_null=True, help_text="`{name, member_number}` se o titular for membro.")
+    points = serializers.IntegerField(help_text="Pontos atribuídos agora (0 se já tinha presença ou não é membro).")
+    registered = serializers.BooleanField()

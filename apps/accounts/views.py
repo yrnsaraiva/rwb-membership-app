@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth import login
 from django.contrib.auth import views as auth_views
@@ -99,6 +100,13 @@ def verify(request, token):
             user=member, status=Registration.Status.CONFIRMED,
             event__starts_at__gte=now - timedelta(hours=12), event__starts_at__lte=now + timedelta(hours=12),
         ).select_related("event")
+        if settings.ETK_ENABLED:
+            from apps.events import etk, ticket_checkin
+
+            try:
+                context["etk_tickets"] = ticket_checkin.tickets_for_member(member)
+            except etk.EtkError:
+                context["etk_error"] = True
     return render(request, "accounts/verify.html", context)
 
 

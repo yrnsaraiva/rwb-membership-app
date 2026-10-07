@@ -158,6 +158,13 @@ Com `ETK_BASE` + `ETK_API_KEY` definidos, **os eventos são criados na API de bi
 - A primeira sincronização não envia notificações push; os eventos novos seguintes enviam.
 - Se a ETK estiver em baixo, a app continua a funcionar com os eventos já copiados.
 
+**Entrada com bilhete da ETK (presença + pontos).** O staff usa o mesmo botão «Ler QR» do painel:
+- **QR do bilhete** (`TCKT…|assinatura`): o RWB marca a entrada na ETK (`tickets/check-in`) e, se o titular for membro, regista a presença e os pontos. Continua a ler o bilhete seguinte (verde = entrou, amarelo = já usado, vermelho = recusado).
+- **QR do cartão de membro** de quem tem bilhete: a ficha mostra os bilhetes pagos dele na ETK com o botão «Dar entrada» (o membro não precisa de mostrar o bilhete).
+- O titular reconhece-se pelo **telemóvel** do bilhete (258…) e, se não bater, pelo **email**; só conta se a correspondência for única. Os telemóveis dos membros são normalizados (`+258 84 …`, `84 …` → `25884…`).
+- Cada entrada paga os pontos uma só vez, mesmo se o bilhete for lido duas vezes ou entrar por outra porta. Quem não é membro entra na mesma (aparece «não é membro RWB»).
+- API para outros leitores: `POST /api/v1/staff/tickets/check-in/` com `{"qrValue": "TCKT…|…"}`.
+
 ## PWA no telemóvel
 
 - **Android:** instalável pelo botão «Instalar RWB» (página inicial) ou pelo menu do Chrome.
