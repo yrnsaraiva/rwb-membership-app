@@ -73,6 +73,19 @@ def streak_ending_at_forward(dates: set, start: date) -> int:
     return count
 
 
+def run_limit_error(user, *, date, distance_km, duration) -> str | None:
+    """Regras anti-batota partilhadas pelo formulário e pela API. Devolve a mensagem de erro, ou None."""
+    same_day = Run.objects.filter(user=user, date=date)
+    if same_day.count() >= settings.RWB_MAX_RUNS_PER_DAY:
+        return f"Máximo de {settings.RWB_MAX_RUNS_PER_DAY} corridas por dia."
+    if same_day.filter(distance_km=distance_km, duration=duration).exists():
+        return "Já registaste uma corrida igual neste dia."
+    total = same_day.aggregate(km=Sum("distance_km"))["km"] or Decimal("0")
+    if total + Decimal(distance_km) > settings.RWB_MAX_DAILY_KM:
+        return f"Máximo de {settings.RWB_MAX_DAILY_KM} km por dia."
+    return None
+
+
 @transaction.atomic
 def log_run(user, *, date, distance_km, duration, title="", notes="", event=None) -> Run:
     run = Run.objects.create(user=user, date=date, distance_km=distance_km, duration=duration,

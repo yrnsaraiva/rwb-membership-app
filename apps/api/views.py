@@ -1,28 +1,58 @@
 """API REST v1 — prepara o terreno para uma app móvel nativa (fase 3)."""
 from datetime import timedelta
 
+from django.conf import settings
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from rest_framework import mixins, permissions, status, viewsets
+from rest_framework.authtoken.models import Token
 from rest_framework.authtoken.views import ObtainAuthToken
 from rest_framework.decorators import action, api_view, permission_classes
 from rest_framework.response import Response
 from rest_framework.throttling import ScopedRateThrottle
 
+from apps.accounts import ratelimit
 from apps.activity import services as activity
 from apps.activity.models import PointTransaction, Run
 from apps.events import services as event_services
 from apps.events.models import Event, Registration
 from apps.leaderboard.services import get_leaderboard
 
-from .serializers import (EventSerializer, MemberSerializer, PointTransactionSerializer, RegistrationSerializer,
-                          RunSerializer)
+from .authentication import token_is_expired
+from .serializers import EventSerializer, MemberSerializer, PointTransactionSerializer, RegistrationSerializer, RunSerializer
 
 
 class TokenView(ObtainAuthToken):
-    """POST {username: email, password} → {token}"""
+    """POST {username: email, password} → {token, expires_in}. Mesmo rate-limit por email/IP que o login web."""
     throttle_classes = [ScopedRateThrottle]
     throttle_scope = "login"
+    authentication_classes = []  # um token caducado/revogado no cabeçalho não pode impedir um novo login
+
+    def post(self, request, *args, **kwargs):
+        email = str(request.data.get("username", ""))
+        if ratelimit.is_blocked(request, email):
+            return Response({"detail": "Demasiadas tentativas falhadas. Aguarda alguns minutos."},
+                            status=status.HTTP_429_TOO_MANY_REQUESTS)
+        serializer = self.serializer_class(data=request.data, context={"request": request})
+        if not serializer.is_valid():
+            ratelimit.register_failure(request, email)
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        ratelimit.reset(request, email)
+        user = serializer.validated_data["user"]
+        token, _ = Token.objects.get_or_create(user=user)
+        if token_is_expired(token):  # renova: apaga o token caducado e emite um novo
+            token.delete()
+            token = Token.objects.create(user=user)
+        return Response({"token": token.key, "expires_in": settings.API_TOKEN_TTL_DAYS * 86400})
+
+
+@api_view(["POST"])
+@permission_classes([permissions.IsAuthenticated])
+def logout(request):
+    """Revoga o token usado no pedido."""
+    if request.auth is not None and hasattr(request.auth, "delete"):
+        request.auth.delete()
+    return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 @api_view(["GET", "PATCH"])

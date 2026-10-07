@@ -6,26 +6,36 @@ from django.core.cache import cache
 
 
 def client_ip(request):
-    forwarded = request.META.get("HTTP_X_FORWARDED_FOR")
-    if forwarded:
-        return forwarded.split(",")[0].strip()
+    """IP do cliente. Só confia nos proxies configurados (TRUSTED_PROXY_COUNT): o X-Forwarded-For é uma
+    lista em que apenas as últimas entradas foram acrescentadas pela nossa infra-estrutura."""
+    proxies = settings.TRUSTED_PROXY_COUNT
+    forwarded = request.META.get("HTTP_X_FORWARDED_FOR", "")
+    if proxies and forwarded:
+        hops = [h.strip() for h in forwarded.split(",") if h.strip()]
+        if hops:
+            return hops[-proxies] if len(hops) >= proxies else hops[0]
     return request.META.get("REMOTE_ADDR", "")
 
 
-def _key(scope, ident):
-    digest = hashlib.sha256(ident.lower().encode()).hexdigest()[:32]
+def _key(scope, *parts):
+    digest = hashlib.sha256("|".join(p.lower() for p in parts).encode()).hexdigest()[:32]
     return f"rl:{scope}:{digest}"
 
 
 def login_keys(request, email):
-    return [_key("login-ip", client_ip(request)), _key("login-email", email or "")]
+    """(par IP+email, IP, email). Cada contador tem o seu limite em is_blocked()."""
+    ip, email = client_ip(request), (email or "").strip()
+    return [_key("login-pair", ip, email), _key("login-ip", ip), _key("login-email", email)]
 
 
 def is_blocked(request, email):
     limit = settings.LOGIN_RATE_LIMIT_ATTEMPTS
-    ip_key, email_key = login_keys(request, email)
-    # O limite por IP é mais permissivo (redes móveis partilham IPs via CGNAT)
-    return cache.get(email_key, 0) >= limit or cache.get(ip_key, 0) >= limit * 4
+    pair_key, ip_key, email_key = login_keys(request, email)
+    # Limite estrito por (IP, email): quem erra a palavra-passe não bloqueia o dono da conta noutro IP.
+    # Limites mais largos por IP (CGNAT das operadoras) e por email (ataque distribuído).
+    return (cache.get(pair_key, 0) >= limit
+            or cache.get(ip_key, 0) >= limit * 4
+            or cache.get(email_key, 0) >= limit * 6)
 
 
 def register_failure(request, email):
@@ -39,4 +49,5 @@ def register_failure(request, email):
 
 
 def reset(request, email):
-    cache.delete_many(login_keys(request, email))
+    # Só limpa o par: os limites por IP e por email continuam a contar tentativas falhadas de outros.
+    cache.delete(login_keys(request, email)[0])

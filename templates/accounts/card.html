@@ -25,5 +25,10 @@
     </div>
   </div>
   <p class="text-center text-sm text-muted mt-5">Mostra este QR à entrada dos eventos para registar a tua presença e ganhar pontos. Funciona mesmo sem rede depois da primeira abertura.</p>
+  <form method="post" action="{% url 'accounts:card_regenerate' %}" class="text-center mt-4"
+        onsubmit="return confirm('Gerar um novo QR? O cartão atual deixa de funcionar.')">
+    {% csrf_token %}
+    <button class="text-xs text-muted underline hover:text-fg">Perdi o telemóvel ou partilhei o QR — gerar novo</button>
+  </form>
 </div>
 {% endblock %}

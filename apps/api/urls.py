@@ -12,6 +12,7 @@ router.register("points", views.PointViewSet, basename="point")
 
 urlpatterns = [
     path("auth/token/", views.TokenView.as_view(), name="token"),
+    path("auth/logout/", views.logout, name="logout"),
     path("me/", views.me, name="me"),
     path("me/dashboard/", views.dashboard, name="dashboard"),
     path("leaderboard/", views.leaderboard, name="leaderboard"),

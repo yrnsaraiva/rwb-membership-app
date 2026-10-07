@@ -8,6 +8,7 @@ from rest_framework import serializers
 from apps.accounts.models import User
 from apps.activity.forms import MAX_BACKDATE_DAYS
 from apps.activity.models import PointTransaction, Run
+from apps.activity.services import run_limit_error
 from apps.events.models import Event, Registration
 
 
@@ -84,6 +85,11 @@ class RunSerializer(serializers.ModelSerializer):
         pace = attrs["duration_seconds"] / float(attrs["distance_km"])
         if pace < settings.RWB_MIN_PACE_SEC_PER_KM:
             raise serializers.ValidationError("Ritmo demasiado rápido para ser real.")
+        user = self.context["request"].user
+        error = run_limit_error(user, date=attrs["date"], distance_km=attrs["distance_km"],
+                                duration=timedelta(seconds=attrs["duration_seconds"]))
+        if error:
+            raise serializers.ValidationError(error)
         return attrs
 
 

@@ -7,6 +7,8 @@ from django.utils import timezone
 
 from apps.events.models import Event, Registration
 
+from .services import run_limit_error
+
 MAX_BACKDATE_DAYS = 60
 
 
@@ -28,6 +30,7 @@ class RunForm(forms.Form):
 
     def __init__(self, *args, user=None, **kwargs):
         super().__init__(*args, **kwargs)
+        self.user = user
         self.fields["date"].initial = timezone.localdate()
         if user is not None:
             recent = timezone.now() - timedelta(days=MAX_BACKDATE_DAYS)
@@ -66,5 +69,10 @@ class RunForm(forms.Form):
             pace = duration.total_seconds() / float(km)
             if pace < settings.RWB_MIN_PACE_SEC_PER_KM:
                 raise forms.ValidationError("Ritmo demasiado rápido para ser real — confirma a distância e o tempo.")
+        d = cleaned.get("date")
+        if self.user is not None and km and d:
+            error = run_limit_error(self.user, date=d, distance_km=km, duration=duration)
+            if error:
+                raise forms.ValidationError(error)
         cleaned["duration"] = duration
         return cleaned
