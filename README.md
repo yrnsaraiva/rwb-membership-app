@@ -127,8 +127,7 @@ apps/leaderboard   ranking com cache
 apps/billing       planos e subscrições premium (activação manual)
 apps/shop          loja de merch: produtos, variantes/stock, carrinho, encomendas
 apps/panel         painel de gestão do clube (staff)
-apps/api           API REST (DRF) + documentação OpenAPI
-mobile/            app Android (Capacitor) — ver mobile/README.md
+apps/api           API REST (DRF)
 templates/         HTML (Tailwind + components.css), emails
 static/            CSS de componentes, JS, ícones PWA
 ```

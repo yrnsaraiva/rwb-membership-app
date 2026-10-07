@@ -3,10 +3,7 @@
 {% block messages_container %}max-w-6xl{% endblock %}
 {% block main_class %}max-w-6xl{% endblock %}
 {% block content %}
-<div class="flex items-center justify-between gap-2 mb-1">
-  <span class="chip chip-brand">{% include "icons/shield.svg" with cls="w-3 h-3" %} Painel de gestão</span>
-  <button type="button" class="btn btn-primary btn-sm" data-native-scan data-site="{{ SITE_URL }}" hidden>{% include "icons/qr.svg" with cls="w-4 h-4" %} Ler QR</button>
-</div>
+<div class="flex items-center gap-2 mb-1"><span class="chip chip-brand">{% include "icons/shield.svg" with cls="w-3 h-3" %} Painel de gestão</span></div>
 <nav class="flex gap-1 overflow-x-auto border-b border-line mb-6 -mx-4 px-4" style="scrollbar-width:none" aria-label="Painel">
   {% with s=request.resolver_match.url_name %}
   <a href="{% url 'panel:index' %}" class="px-3 py-3 text-sm font-medium whitespace-nowrap border-b-2 {% if s == 'index' %}border-brand text-fg{% else %}border-transparent text-muted hover:text-fg{% endif %}">Resumo</a>

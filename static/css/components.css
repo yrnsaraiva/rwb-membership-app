@@ -303,6 +303,3 @@ a { color: inherit; text-decoration: none; }
 
 .choice-card input[type=radio] { margin-top: .2rem; width: 18px; height: 18px; accent-color: var(--brand); }
 .choice-card:has(input:checked) { border-color: var(--brand-border); background: var(--brand-tint); }
-
-/* Dentro da app nativa (Capacitor) não faz sentido pedir para instalar */
-.is-native [data-install] { display: none !important; }

@@ -1,7 +1,0 @@
-<?xml version='1.0' encoding='utf-8'?>
-<resources>
-    <string name="app_name">RunWithBroto</string>
-    <string name="title_activity_main">RunWithBroto</string>
-    <string name="package_name">co.mz.runwithbroto.app</string>
-    <string name="custom_url_scheme">co.mz.runwithbroto.app</string>
-</resources>
