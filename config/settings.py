@@ -222,7 +222,8 @@ REST_FRAMEWORK = {
         "rest_framework.throttling.AnonRateThrottle",
         "rest_framework.throttling.UserRateThrottle",
     ],
-    "DEFAULT_THROTTLE_RATES": {"anon": "60/min", "user": "240/min", "login": "10/min"},
+    "DEFAULT_THROTTLE_RATES": {"anon": "60/min", "user": "240/min", "login": "10/min", "register": "10/hour",
+                              "password_reset": "5/hour"},
     "NUM_PROXIES": TRUSTED_PROXY_COUNT,
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
 }
@@ -238,8 +239,14 @@ SPECTACULAR_SETTINGS = {
     "SERVE_INCLUDE_SCHEMA": False,
     "SCHEMA_PATH_PREFIX": r"/api/v1",
     "COMPONENT_SPLIT_REQUEST": True,
+    "ENUM_NAME_OVERRIDES": {
+        "RegistrationStatusEnum": "apps.events.models.Registration.Status",
+        "OrderStatusEnum": "apps.shop.models.Order.Status",
+        "SubscriptionStatusEnum": "apps.billing.models.Subscription.Status",
+    },
     "SERVERS": [{"url": SITE_URL}],
 }
+PUSH_ENABLED = env_bool("PUSH_ENABLED", False)  # só activar quando o transporte FCM estiver implementado
 API_TOKEN_TTL_DAYS = int(env("API_TOKEN_TTL_DAYS", "30"))  # os tokens da API expiram e são renovados no login
 
 # Regras de negócio (pontos) ---------------------------------------------------

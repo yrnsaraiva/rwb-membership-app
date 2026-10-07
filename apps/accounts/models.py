@@ -112,3 +112,27 @@ class User(AbstractUser):
     @property
     def member_since(self):
         return timezone.localtime(self.date_joined).date()
+
+
+class Device(models.Model):
+    """Dispositivo móvel registado para notificações push (FCM/APNs)."""
+
+    class Platform(models.TextChoices):
+        ANDROID = "android", "Android"
+        IOS = "ios", "iOS"
+        WEB = "web", "Web"
+
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="devices", verbose_name="membro")
+    token = models.CharField("token push", max_length=255, unique=True)
+    platform = models.CharField("plataforma", max_length=10, choices=Platform.choices)
+    app_version = models.CharField("versão da app", max_length=20, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    last_seen_at = models.DateTimeField("visto por último", auto_now=True)
+
+    class Meta:
+        verbose_name = "dispositivo"
+        verbose_name_plural = "dispositivos"
+        ordering = ["-last_seen_at"]
+
+    def __str__(self):
+        return f"{self.user} · {self.get_platform_display()}"

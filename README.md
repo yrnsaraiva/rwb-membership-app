@@ -100,6 +100,18 @@ Documentação interactiva (OpenAPI 3, Swagger UI) em **`/api/v1/docs/`**; o esq
 | GET/POST/DELETE | `runs/`, `runs/{id}/` | Corridas (`duration_seconds` no POST) |
 | GET | `points/` | Movimentos de pontos |
 | GET | `leaderboard/?period=mes\|geral&metric=pontos\|km` | Ranking (público) |
+| POST | `auth/register/` | Criar conta → `{token, expires_in, member}` (mesmas regras do site) |
+| POST | `auth/password-reset/`, `auth/password-reset/confirm/` | Recuperação de palavra-passe (email → `uid` + `token`) |
+| POST | `me/password/` | Mudar palavra-passe (revoga tokens e devolve um novo) |
+| POST/DELETE | `me/devices/`, `me/devices/{token}/` | Registar/remover dispositivo para push |
+| GET | `shop/products/`, `shop/products/{slug}/`, `shop/config/` | Catálogo (público, com preço premium) e instruções de pagamento |
+| GET/POST | `shop/orders/`, `shop/orders/{id}/`, `shop/orders/{id}/cancel/` | Encomendas (as linhas vão no pedido, sem carrinho de sessão) |
+| GET | `premium/plans/` | Planos (público) |
+| GET/POST | `premium/`, `premium/requests/{id}/cancel/` | Estado premium, pedir subscrição, cancelar pedido |
+| GET | `staff/cards/{uuid}/` | **Staff:** ler o QR → membro + inscrições de hoje |
+| POST/DELETE | `staff/registrations/{id}/checkin/` | **Staff:** marcar/desfazer presença |
+
+**Push:** o modelo `Device` e os endpoints existem; o envio (`apps/core/push.py`, FCM) ainda não está ligado — `PUSH_ENABLED` fica desligado até haver projecto Firebase.
 
 ---
 
