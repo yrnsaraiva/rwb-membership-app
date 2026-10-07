@@ -3,7 +3,7 @@ const VERSION = "rwb-{{ version }}";
 const STATIC_CACHE = VERSION + "-static";
 const PAGE_CACHE = VERSION + "-pages";
 const OFFLINE_URL = "/offline/";
-const PRECACHE = [OFFLINE_URL, "{{ css_url }}", "{{ js_url }}", "{{ icon_url }}", "{{ components_url }}"];
+const PRECACHE = [OFFLINE_URL, "{{ css_url }}", "{{ js_url }}", "{{ pwa_url }}", "{{ icon_url }}", "{{ components_url }}"];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(caches.open(STATIC_CACHE).then((cache) => Promise.all(PRECACHE.map((u) => cache.add(u).catch(() => null)))).then(() => self.skipWaiting()));

@@ -1,0 +1,12 @@
+{% comment %}Guia de instalação para iPhone/iPad. Escondido por omissão; static/js/pwa.js mostra-o no iOS quando a app ainda não foi instalada.{% endcomment %}
+<aside class="ios-install" data-ios-install hidden role="dialog" aria-labelledby="ios-install-title">
+  <button type="button" class="ios-install-close" data-ios-install-close aria-label="Fechar">{% include "icons/x.svg" with cls="w-5 h-5" %}</button>
+  <p id="ios-install-title" class="font-display text-lg font-semibold uppercase">Instala a RWB no iPhone</p>
+  <p class="text-sm text-muted mt-1">Com a app instalada tens o cartão sempre à mão e podes receber notificações.</p>
+  <ol class="ios-steps">
+    <li><span class="ios-step-n">1</span><span>Toca em <strong>Partilhar</strong> <span class="ios-share">{% include "icons/share.svg" with cls="w-5 h-5" %}</span> na barra do Safari.</span></li>
+    <li><span class="ios-step-n">2</span><span>Desce e escolhe <strong>«Adicionar ao ecrã principal»</strong>.</span></li>
+    <li><span class="ios-step-n">3</span><span>Abre a <strong>RWB</strong> pelo novo ícone no ecrã principal.</span></li>
+  </ol>
+  <p class="text-xs text-muted mt-3" data-ios-not-safari hidden>Abre este site no <strong>Safari</strong> para poderes instalar.</p>
+</aside>
