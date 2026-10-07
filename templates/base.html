@@ -19,6 +19,7 @@
       document.querySelector("meta[data-theme-color]").setAttribute("content", t === "dark" ? "#0B0B0B" : "#FFFFFF");
     })();
   </script>
+  {% if user.is_authenticated %}<meta name="rwb-auth" content="{{ user.pk }}">{% endif %}
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">

@@ -54,3 +54,34 @@ self.addEventListener("fetch", (event) => {
     );
   }
 });
+
+// --- Notificações push --------------------------------------------------------------------
+self.addEventListener("push", (event) => {
+  let data = {};
+  try { data = event.data ? event.data.json() : {}; } catch (e) { data = { body: event.data ? event.data.text() : "" }; }
+  event.waitUntil(self.registration.showNotification(data.title || "RunWithBroto", {
+    body: data.body || "",
+    icon: "{{ icon_url }}",
+    badge: "{{ badge_url }}",
+    tag: data.tag || undefined,
+    data: { url: data.url || "/" },
+  }));
+});
+
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  let target = new URL("/", self.location.origin);
+  try {
+    const u = new URL((event.notification.data && event.notification.data.url) || "/", self.location.origin);
+    if (u.origin === self.location.origin) target = u;  // nunca navega para fora do site
+  } catch (e) {}
+  event.waitUntil(
+    self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((list) => {
+      const open = list[0];
+      if (open && "focus" in open) {
+        return open.focus().then(() => ("navigate" in open ? open.navigate(target.href) : null)).catch(() => self.clients.openWindow(target.href));
+      }
+      return self.clients.openWindow(target.href);
+    })
+  );
+});

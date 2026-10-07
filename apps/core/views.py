@@ -64,6 +64,7 @@ def service_worker(request):
         "pwa_url": static("js/pwa.js"),
         "components_url": static("css/components.css"),
         "icon_url": static("img/icons/icon-192.png"),
+        "badge_url": static("img/icons/favicon-64.png"),
     }, content_type="application/javascript")
     response["Service-Worker-Allowed"] = "/"
     response["Cache-Control"] = "no-cache"

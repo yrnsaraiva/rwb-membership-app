@@ -57,6 +57,7 @@ class Event(models.Model):
     is_published = models.BooleanField("publicado", default=True)
     created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
                                    related_name="+", verbose_name="criado por")
+    announced_at = models.DateTimeField("anunciado por push em", null=True, blank=True, editable=False)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -139,6 +140,7 @@ class Registration(models.Model):
     checked_in_at = models.DateTimeField("presença registada em", null=True, blank=True)
     created_at = models.DateTimeField("inscrito em", auto_now_add=True)
     cancelled_at = models.DateTimeField("cancelado em", null=True, blank=True)
+    reminder_sent_at = models.DateTimeField("lembrete enviado em", null=True, blank=True, editable=False)
 
     class Meta:
         verbose_name = "inscrição"

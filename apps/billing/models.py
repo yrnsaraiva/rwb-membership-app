@@ -114,3 +114,7 @@ class Subscription(models.Model):
         if reference:
             self.payment_reference = reference
         self.save()
+        from apps.notifications import services as push
+
+        push.notify(self.user, "Premium activo", f"O plano {self.plan.name} está activo até {self.ends_at:%d/%m/%Y}.",
+                    url="/premium/", tag=f"subscription-{self.pk}")

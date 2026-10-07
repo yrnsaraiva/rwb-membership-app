@@ -16,6 +16,7 @@ def site(request):
         "CURRENCY": settings.CURRENCY,
         "TAILWIND_CDN_FALLBACK": not _compiled_css_available(),
         "nav": _active_nav(request),
+        "VAPID_PUBLIC_KEY": settings.VAPID_PUBLIC_KEY,
         "points_per_km": settings.RWB_POINTS_PER_KM,
         "streak_every": settings.RWB_STREAK_BONUS_EVERY,
         "streak_bonus": settings.RWB_STREAK_BONUS_POINTS,

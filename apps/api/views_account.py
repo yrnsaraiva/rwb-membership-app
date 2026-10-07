@@ -9,22 +9,25 @@ from django.utils.http import urlsafe_base64_decode
 from drf_spectacular.utils import extend_schema
 from rest_framework import permissions, status
 from rest_framework.authtoken.models import Token
-from rest_framework.generics import DestroyAPIView
 from rest_framework.response import Response
 from rest_framework.throttling import ScopedRateThrottle
 from rest_framework.views import APIView
 
-from apps.accounts.models import Device, User
+from apps.accounts.models import User
 from apps.core.emails import send_templated_email
+from apps.notifications import services as push_services
+from apps.notifications.models import PushSubscription
 
 from .serializers import (
     AuthResultSerializer,
     DetailSerializer,
-    DeviceSerializer,
     MemberSerializer,
     PasswordChangeSerializer,
     PasswordResetConfirmSerializer,
     PasswordResetRequestSerializer,
+    PushConfigSerializer,
+    PushSubscriptionSerializer,
+    PushUnsubscribeSerializer,
     RegisterSerializer,
     TokenResponseSerializer,
 )
@@ -124,27 +127,35 @@ class ChangePasswordView(APIView):
         return Response({"token": payload["token"], "expires_in": payload["expires_in"]})
 
 
-@extend_schema(tags=["Notificações"], request=DeviceSerializer, responses={200: DeviceSerializer, 201: DeviceSerializer},
-               summary="Registar dispositivo para notificações push",
-               description="Idempotente: enviar o mesmo token de novo apenas actualiza o registo (e passa-o para o membro actual).")
-class DeviceView(APIView):
+@extend_schema(tags=["Notificações"], auth=[], responses=PushConfigSerializer, summary="Configuração Web Push",
+               description="`public_key` é a chave VAPID (base64url) para `pushManager.subscribe({applicationServerKey})`.")
+class PushConfigView(APIView):
+    permission_classes = [permissions.AllowAny]
+
+    def get(self, request):
+        return Response({"enabled": push_services.is_enabled(), "public_key": settings.VAPID_PUBLIC_KEY})
+
+
+@extend_schema(tags=["Notificações"])
+class PushSubscriptionView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
+    @extend_schema(summary="Guardar subscrição Web Push deste navegador", request=PushSubscriptionSerializer,
+                   description="Idempotente. Enviar o objecto devolvido por `PushSubscription.toJSON()`.",
+                   responses={200: PushUnsubscribeSerializer, 201: PushUnsubscribeSerializer})
     def post(self, request):
-        serializer = DeviceSerializer(data=request.data)
+        serializer = PushSubscriptionSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         d = serializer.validated_data
-        device, created = Device.objects.update_or_create(
-            token=d["token"], defaults={"user": request.user, "platform": d["platform"],
-                                        "app_version": d.get("app_version", "")})
-        return Response(DeviceSerializer(device).data, status=status.HTTP_201_CREATED if created else status.HTTP_200_OK)
+        sub, created = PushSubscription.objects.update_or_create(
+            endpoint=d["endpoint"],
+            defaults={"user": request.user, "p256dh": d["keys"]["p256dh"], "auth": d["keys"]["auth"], "failures": 0,
+                      "user_agent": request.META.get("HTTP_USER_AGENT", "")[:255]})
+        return Response({"endpoint": sub.endpoint}, status=status.HTTP_201_CREATED if created else status.HTTP_200_OK)
 
-
-@extend_schema(tags=["Notificações"], summary="Remover dispositivo (ao terminar sessão)", responses={204: None})
-class DeviceDeleteView(DestroyAPIView):
-    permission_classes = [permissions.IsAuthenticated]
-    lookup_field = "token"
-    lookup_url_kwarg = "token"
-
-    def get_queryset(self):
-        return Device.objects.filter(user=self.request.user) if not getattr(self, "swagger_fake_view", False) else Device.objects.none()
+    @extend_schema(summary="Remover subscrição Web Push", request=PushUnsubscribeSerializer, responses={204: None})
+    def delete(self, request):
+        serializer = PushUnsubscribeSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        PushSubscription.objects.filter(user=request.user, endpoint=serializer.validated_data["endpoint"]).delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)

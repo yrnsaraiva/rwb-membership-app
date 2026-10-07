@@ -81,6 +81,7 @@ INSTALLED_APPS = [
     "apps.leaderboard",
     "apps.billing",
     "apps.shop",
+    "apps.notifications",
     "apps.panel",
     "apps.api",
 ]
@@ -246,7 +247,11 @@ SPECTACULAR_SETTINGS = {
     },
     "SERVERS": [{"url": SITE_URL}],
 }
-PUSH_ENABLED = env_bool("PUSH_ENABLED", False)  # só activar quando o transporte FCM estiver implementado
+# Web Push (PWA): gerar as chaves com `python manage.py generate_vapid_keys`
+VAPID_PUBLIC_KEY = env("VAPID_PUBLIC_KEY", "")
+VAPID_PRIVATE_KEY = env("VAPID_PRIVATE_KEY", "")
+VAPID_CONTACT = env("VAPID_CONTACT", "mailto:no-reply@runwithbroto.co.mz")  # contacto do emissor exigido pelo protocolo
+PUSH_SYNC = TESTING  # em testes, envia no próprio pedido (sem threads)
 API_TOKEN_TTL_DAYS = int(env("API_TOKEN_TTL_DAYS", "30"))  # os tokens da API expiram e são renovados no login
 
 # Regras de negócio (pontos) ---------------------------------------------------

@@ -5,7 +5,7 @@ from django.contrib.auth.models import Group
 from unfold.admin import ModelAdmin
 from unfold.forms import AdminPasswordChangeForm, UserChangeForm, UserCreationForm
 
-from .models import Device, User
+from .models import User
 
 admin.site.unregister(Group)
 
@@ -48,10 +48,3 @@ class UserAdmin(BaseUserAdmin, ModelAdmin):
         (None, {"classes": ("wide",), "fields": ("email", "first_name", "last_name", "password1", "password2")}),
     )
 
-
-@admin.register(Device)
-class DeviceAdmin(ModelAdmin):
-    list_display = ("user", "platform", "app_version", "last_seen_at")
-    list_filter = ("platform",)
-    search_fields = ("user__email", "token")
-    readonly_fields = ("created_at", "last_seen_at")

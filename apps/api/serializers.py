@@ -205,14 +205,26 @@ class PasswordChangeSerializer(serializers.Serializer):
     new_password = serializers.CharField(write_only=True, style={"input_type": "password"})
 
 
-class DeviceSerializer(serializers.ModelSerializer):
-    class Meta:
-        from apps.accounts.models import Device
+class PushKeysSerializer(serializers.Serializer):
+    p256dh = serializers.CharField(max_length=255)
+    auth = serializers.CharField(max_length=255)
 
-        model = Device
-        fields = ["token", "platform", "app_version", "created_at", "last_seen_at"]
-        read_only_fields = ["created_at", "last_seen_at"]
-        extra_kwargs = {"token": {"validators": []}}  # upsert: o mesmo token pode ser enviado de novo
+
+class PushSubscriptionSerializer(serializers.Serializer):
+    """Formato de `PushSubscription.toJSON()` do navegador."""
+
+    endpoint = serializers.URLField(max_length=700)
+    keys = PushKeysSerializer()
+    expirationTime = serializers.FloatField(required=False, allow_null=True, write_only=True)
+
+
+class PushUnsubscribeSerializer(serializers.Serializer):
+    endpoint = serializers.URLField(max_length=700)
+
+
+class PushConfigSerializer(serializers.Serializer):
+    enabled = serializers.BooleanField()
+    public_key = serializers.CharField(allow_blank=True)
 
 
 # --- Staff: cartão QR e presenças -----------------------------------------------------------

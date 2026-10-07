@@ -50,6 +50,7 @@ python manage.py makemigrations --check --dry-run   # confirma que as migraçõe
    - `DJANGO_ALLOWED_HOSTS` e `DJANGO_CSRF_TRUSTED_ORIGINS` — para o domínio próprio (o domínio `*.railway.app` é adicionado automaticamente)
    - `REDIS_URL` — **recomendado em produção**: o rate-limit do login e o ranking precisam de cache partilhada entre workers (`check --deploy` avisa se faltar)
    - `TRUSTED_PROXY_COUNT` — nº de proxies à frente da app (omissão: 1, o Railway); usado para obter o IP real do cliente
+   - Notificações push: `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY` (gerar com `python manage.py generate_vapid_keys`) e `VAPID_CONTACT` (`mailto:…`). Sem as chaves o botão «Ativar notificações» não aparece
    - Opcionais: `SENTRY_DSN` (monitorização de erros), `API_TOKEN_TTL_DAYS` (validade dos tokens da API, 30), `RWB_MAX_RUNS_PER_DAY` (4) e `RWB_MAX_DAILY_KM` (100), limites anti-batota
    - Loja: `RWB_SHOP_MPESA_NUMBER`, `RWB_SHOP_MPESA_NAME`, `RWB_SHOP_BANK_DETAILS` (aparecem nas instruções de pagamento), `RWB_SHOP_DELIVERY_FEE`, `RWB_PREMIUM_SHOP_DISCOUNT`
    - Email Hostinger: `EMAIL_HOST=smtp.hostinger.com`, `EMAIL_PORT=465`, `EMAIL_HOST_USER`, `EMAIL_HOST_PASSWORD`, `DEFAULT_FROM_EMAIL`
@@ -57,6 +58,7 @@ python manage.py makemigrations --check --dry-run   # confirma que as migraçõe
 7. Tarefas agendadas (Railway Cron, serviço separado com o mesmo código):
    - diário: `python manage.py expire_subscriptions`
    - diário: `python manage.py cancel_stale_orders` (cancela encomendas por pagar há mais de `RWB_SHOP_HOLD_DAYS` dias e devolve o stock)
+   - de hora a hora: `python manage.py send_event_reminders` (lembrete push aos inscritos de eventos nas próximas 24 h)
    - semanal (RNF-07): `python manage.py backup_db --keep 8` (grava em `BACKUP_DIR`; montar volume ou sincronizar para armazenamento externo). O Postgres do Railway também tem backups próprios — activar.
 
 O arranque corre `migrate` automaticamente e o healthcheck usa `/healthz`.
@@ -103,7 +105,8 @@ Documentação interactiva (OpenAPI 3, Swagger UI) em **`/api/v1/docs/`**; o esq
 | POST | `auth/register/` | Criar conta → `{token, expires_in, member}` (mesmas regras do site) |
 | POST | `auth/password-reset/`, `auth/password-reset/confirm/` | Recuperação de palavra-passe (email → `uid` + `token`) |
 | POST | `me/password/` | Mudar palavra-passe (revoga tokens e devolve um novo) |
-| POST/DELETE | `me/devices/`, `me/devices/{token}/` | Registar/remover dispositivo para push |
+| GET | `push/config/` | Chave pública VAPID (Web Push) |
+| POST/DELETE | `me/push/` | Guardar/remover a subscrição Web Push do navegador |
 | GET | `shop/products/`, `shop/products/{slug}/`, `shop/config/` | Catálogo (público, com preço premium) e instruções de pagamento |
 | GET/POST | `shop/orders/`, `shop/orders/{id}/`, `shop/orders/{id}/cancel/` | Encomendas (as linhas vão no pedido, sem carrinho de sessão) |
 | GET | `premium/plans/` | Planos (público) |
@@ -111,7 +114,7 @@ Documentação interactiva (OpenAPI 3, Swagger UI) em **`/api/v1/docs/`**; o esq
 | GET | `staff/cards/{uuid}/` | **Staff:** ler o QR → membro + inscrições de hoje |
 | POST/DELETE | `staff/registrations/{id}/checkin/` | **Staff:** marcar/desfazer presença |
 
-**Push:** o modelo `Device` e os endpoints existem; o envio (`apps/core/push.py`, FCM) ainda não está ligado — `PUSH_ENABLED` fica desligado até haver projecto Firebase.
+**Notificações push:** Web Push (VAPID) para a PWA — ver a secção «Notificações» abaixo.
 
 ---
 
@@ -141,6 +144,14 @@ Logótipos em `static/img/brand/` (versão amarela para fundo escuro, preta para
 **Loja — como começar:** Admin → Loja → Categorias/Produtos. Cada produto precisa de pelo menos uma **variante** (ex.: S/M/L ou "Tamanho único") com stock; as fotos são opcionais (sem foto aparece o logótipo). `python manage.py seed_demo` cria 5 produtos de exemplo.
 
 **Tornar alguém administrador do clube:** Django admin → Membros → marcar "staff status". Staff acede a `/painel/`.
+
+---
+
+## Notificações (PWA)
+
+Web Push com chaves VAPID, sem Firebase nem conta de loja. No **Android** funciona no browser ou na PWA instalada; no **iPhone** (iOS 16.4+) só com a app instalada no ecrã principal — o Perfil explica isso ao membro.
+O membro liga/desliga em **Perfil → Notificações**. Avisos enviados: evento novo (uma vez, quando fica publicado), lembrete 24 h antes, pagamento recebido / encomenda pronta, premium activado.
+O envio corre numa thread do servidor (sem fila externa); subscrições mortas (404/410) são apagadas sozinhas. Se o volume crescer muito, mover para uma fila (Celery/RQ).
 
 ---
 

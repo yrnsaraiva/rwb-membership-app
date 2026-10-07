@@ -5,15 +5,16 @@ from decimal import Decimal
 
 from django.core import mail
 from django.core.cache import cache
-from django.test import TestCase
+from django.test import TestCase, override_settings
 from django.utils import timezone
 from rest_framework.test import APIClient
 
-from apps.accounts.models import Device, User
+from apps.accounts.models import User
 from apps.activity.models import PointTransaction
 from apps.billing.models import Plan, Subscription
 from apps.events import services as event_services
 from apps.events.models import Event, Registration
+from apps.notifications.models import PushSubscription
 from apps.shop.models import Order, Product, ProductVariant
 
 PASSWORD = "Corrida!2026x"
@@ -77,21 +78,28 @@ class AccountApiTests(Base):
         self.client.credentials(HTTP_AUTHORIZATION="Token " + resp.data["token"])
         self.assertEqual(self.client.get("/api/v1/me/").status_code, 200)
 
-    def test_devices_upsert_and_delete(self):
+    def test_push_subscription_upsert_and_delete(self):
         self.client.force_authenticate(self.user)
-        body = {"token": "fcm-123", "platform": "android", "app_version": "1.0"}
-        self.assertEqual(self.client.post("/api/v1/me/devices/", body, format="json").status_code, 201)
-        self.assertEqual(self.client.post("/api/v1/me/devices/", body, format="json").status_code, 200)
-        self.assertEqual(Device.objects.count(), 1)
-        # o mesmo telemóvel passa para outro membro: o token não fica associado ao anterior
+        body = {"endpoint": "https://push.example/abc", "keys": {"p256dh": "k1", "auth": "a1"}, "expirationTime": None}
+        self.assertEqual(self.client.post("/api/v1/me/push/", body, format="json").status_code, 201)
+        self.assertEqual(self.client.post("/api/v1/me/push/", body, format="json").status_code, 200)
+        self.assertEqual(PushSubscription.objects.count(), 1)
+        # o mesmo telemóvel passa para outro membro: a subscrição deixa de pertencer ao anterior
         self.client.force_authenticate(self.staff)
-        self.client.post("/api/v1/me/devices/", body, format="json")
-        self.assertEqual(Device.objects.get().user, self.staff)
+        self.client.post("/api/v1/me/push/", body, format="json")
+        self.assertEqual(PushSubscription.objects.get().user, self.staff)
         self.client.force_authenticate(self.user)
-        self.assertEqual(self.client.delete("/api/v1/me/devices/fcm-123/").status_code, 404)  # não é dele
+        self.client.delete("/api/v1/me/push/", {"endpoint": body["endpoint"]}, format="json")
+        self.assertEqual(PushSubscription.objects.count(), 1)  # não apaga a de outro membro
         self.client.force_authenticate(self.staff)
-        self.assertEqual(self.client.delete("/api/v1/me/devices/fcm-123/").status_code, 204)
-        self.assertEqual(self.client.post("/api/v1/me/devices/", {"token": "x", "platform": "symbian"}, format="json").status_code, 400)
+        self.assertEqual(self.client.delete("/api/v1/me/push/", {"endpoint": body["endpoint"]}, format="json").status_code, 204)
+        self.assertEqual(PushSubscription.objects.count(), 0)
+        self.assertEqual(self.client.post("/api/v1/me/push/", {"endpoint": "nao-e-url", "keys": {}}, format="json").status_code, 400)
+
+    @override_settings(VAPID_PUBLIC_KEY="pub", VAPID_PRIVATE_KEY="priv")
+    def test_push_config_is_public(self):
+        data = self.client.get("/api/v1/push/config/").data
+        self.assertEqual(data, {"enabled": True, "public_key": "pub"})
 
 
 class StaffApiTests(Base):
