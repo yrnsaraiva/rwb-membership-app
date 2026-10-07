@@ -2,6 +2,7 @@
 import csv
 from datetime import timedelta
 
+from django.conf import settings
 from django.contrib import messages
 from django.contrib.admin.views.decorators import staff_member_required
 from django.contrib.auth import get_user_model
@@ -20,7 +21,7 @@ from apps.events.models import Event, Registration
 from apps.shop import services as shop_services
 from apps.shop.models import Order
 
-from .forms import ActivateSubscriptionForm, EventForm, PointsAdjustForm
+from .forms import ActivateSubscriptionForm, EventForm, ExternalEventForm, PointsAdjustForm
 
 User = get_user_model()
 staff_required = staff_member_required(login_url="accounts:login")
@@ -153,7 +154,12 @@ def events(request):
 @require_http_methods(["GET", "POST"])
 def event_form(request, pk=None):
     event = get_object_or_404(Event, pk=pk) if pk else None
-    form = EventForm(request.POST or None, request.FILES or None, instance=event)
+    if event is None and settings.ETK_ENABLED:
+        messages.info(request, "Os eventos são criados na ETK e sincronizados para aqui.")
+        return redirect("panel:events")
+    external = bool(event and event.is_external)
+    form_class = ExternalEventForm if external else EventForm
+    form = form_class(request.POST or None, request.FILES or None, instance=event)
     if request.method == "POST" and form.is_valid():
         obj = form.save(commit=False)
         if not obj.pk:
@@ -161,7 +167,21 @@ def event_form(request, pk=None):
         obj.save()
         messages.success(request, "Evento guardado.")
         return redirect("panel:event_registrations", pk=obj.pk)
-    return render(request, "panel/event_form.html", {"form": form, "event": event})
+    return render(request, "panel/event_form.html", {"form": form, "event": event, "external": external})
+
+
+@staff_required
+@require_POST
+def events_sync(request):
+    from apps.events import etk
+
+    try:
+        result = etk.sync_events()
+    except etk.EtkError as exc:
+        messages.error(request, f"Não foi possível sincronizar com a ETK: {exc}")
+    else:
+        messages.success(request, f"ETK sincronizada: {result}.")
+    return redirect("panel:events")
 
 
 @staff_required

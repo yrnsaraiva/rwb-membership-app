@@ -50,6 +50,8 @@ python manage.py makemigrations --check --dry-run   # confirma que as migraçõe
    - `DJANGO_ALLOWED_HOSTS` e `DJANGO_CSRF_TRUSTED_ORIGINS` — para o domínio próprio (o domínio `*.railway.app` é adicionado automaticamente)
    - `REDIS_URL` — **recomendado em produção**: o rate-limit do login e o ranking precisam de cache partilhada entre workers (`check --deploy` avisa se faltar)
    - `TRUSTED_PROXY_COUNT` — nº de proxies à frente da app (omissão: 1, o Railway); usado para obter o IP real do cliente
+   - Eventos (ETK): `ETK_BASE` (ex.: `https://etk-api.up.railway.app`), `ETK_API_KEY` (`etk_live_…`, chave de parceiro) e `ETK_PUBLIC_EVENT_URL` (link de compra do bilhete, com `{id}`)
+   - Notificações push: `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY` (gerar com `python manage.py generate_vapid_keys`) e `VAPID_CONTACT` (`mailto:…`). Sem as chaves o botão «Ativar notificações» não aparece
    - Opcionais: `SENTRY_DSN` (monitorização de erros), `API_TOKEN_TTL_DAYS` (validade dos tokens da API, 30), `RWB_MAX_RUNS_PER_DAY` (4) e `RWB_MAX_DAILY_KM` (100), limites anti-batota
    - Loja: `RWB_SHOP_MPESA_NUMBER`, `RWB_SHOP_MPESA_NAME`, `RWB_SHOP_BANK_DETAILS` (aparecem nas instruções de pagamento), `RWB_SHOP_DELIVERY_FEE`, `RWB_PREMIUM_SHOP_DISCOUNT`
    - Email Hostinger: `EMAIL_HOST=smtp.hostinger.com`, `EMAIL_PORT=465`, `EMAIL_HOST_USER`, `EMAIL_HOST_PASSWORD`, `DEFAULT_FROM_EMAIL`
@@ -57,6 +59,8 @@ python manage.py makemigrations --check --dry-run   # confirma que as migraçõe
 7. Tarefas agendadas (Railway Cron, serviço separado com o mesmo código):
    - diário: `python manage.py expire_subscriptions`
    - diário: `python manage.py cancel_stale_orders` (cancela encomendas por pagar há mais de `RWB_SHOP_HOLD_DAYS` dias e devolve o stock)
+   - de 10 em 10 minutos: `python manage.py sync_etk_events` (traz os eventos da ETK)
+   - de hora a hora: `python manage.py send_event_reminders` (lembrete push aos inscritos de eventos nas próximas 24 h)
    - semanal (RNF-07): `python manage.py backup_db --keep 8` (grava em `BACKUP_DIR`; montar volume ou sincronizar para armazenamento externo). O Postgres do Railway também tem backups próprios — activar.
 
 O arranque corre `migrate` automaticamente e o healthcheck usa `/healthz`.
@@ -87,6 +91,8 @@ O arranque corre `migrate` automaticamente e o healthcheck usa `/healthz`.
 
 ### API REST (`/api/v1/`) — base para a app nativa (fase 3)
 
+Documentação interactiva (OpenAPI 3, Swagger UI) em **`/api/v1/docs/`**; o esquema em `/api/v1/schema/` serve para gerar clientes (Swift, Kotlin, TypeScript). Exportar: `python manage.py spectacular --file schema.yml`. O CI valida o esquema sem avisos, por isso novos endpoints têm de ser documentados (`@extend_schema`).
+
 | Método | Endpoint | Descrição |
 |---|---|---|
 | POST | `auth/token/` | `{username: email, password}` → `{token, expires_in}` (usar `Authorization: Token …`). Tem rate-limit por conta/IP; o token expira e é revogado ao mudar a palavra-passe |
@@ -98,6 +104,19 @@ O arranque corre `migrate` automaticamente e o healthcheck usa `/healthz`.
 | GET/POST/DELETE | `runs/`, `runs/{id}/` | Corridas (`duration_seconds` no POST) |
 | GET | `points/` | Movimentos de pontos |
 | GET | `leaderboard/?period=mes\|geral&metric=pontos\|km` | Ranking (público) |
+| POST | `auth/register/` | Criar conta → `{token, expires_in, member}` (mesmas regras do site) |
+| POST | `auth/password-reset/`, `auth/password-reset/confirm/` | Recuperação de palavra-passe (email → `uid` + `token`) |
+| POST | `me/password/` | Mudar palavra-passe (revoga tokens e devolve um novo) |
+| GET | `push/config/` | Chave pública VAPID (Web Push) |
+| POST/DELETE | `me/push/` | Guardar/remover a subscrição Web Push do navegador |
+| GET | `shop/products/`, `shop/products/{slug}/`, `shop/config/` | Catálogo (público, com preço premium) e instruções de pagamento |
+| GET/POST | `shop/orders/`, `shop/orders/{id}/`, `shop/orders/{id}/cancel/` | Encomendas (as linhas vão no pedido, sem carrinho de sessão) |
+| GET | `premium/plans/` | Planos (público) |
+| GET/POST | `premium/`, `premium/requests/{id}/cancel/` | Estado premium, pedir subscrição, cancelar pedido |
+| GET | `staff/cards/{uuid}/` | **Staff:** ler o QR → membro + inscrições de hoje |
+| POST/DELETE | `staff/registrations/{id}/checkin/` | **Staff:** marcar/desfazer presença |
+
+**Notificações push:** Web Push (VAPID) para a PWA — ver a secção «Notificações» abaixo.
 
 ---
 
@@ -127,6 +146,30 @@ Logótipos em `static/img/brand/` (versão amarela para fundo escuro, preta para
 **Loja — como começar:** Admin → Loja → Categorias/Produtos. Cada produto precisa de pelo menos uma **variante** (ex.: S/M/L ou "Tamanho único") com stock; as fotos são opcionais (sem foto aparece o logótipo). `python manage.py seed_demo` cria 5 produtos de exemplo.
 
 **Tornar alguém administrador do clube:** Django admin → Membros → marcar "staff status". Staff acede a `/painel/`.
+
+---
+
+## Eventos vindos da ETK
+
+Com `ETK_BASE` + `ETK_API_KEY` definidos, **os eventos são criados na API de bilhetes (ETK)** e copiados para aqui por `python manage.py sync_etk_events` (ou pelo botão «Sincronizar com a ETK» em Painel → Eventos).
+- Vêm da ETK: nome, descrição, tipo, data, local, imagem e bilhetes (preços e disponibilidade). Eventos que a ETK deixa de publicar ou cancela ficam despublicados aqui (as inscrições mantêm-se).
+- Ficam no RWB e **nunca são sobrescritos**: pontos de presença, só-premium, ponto de encontro, mapa e distâncias (editáveis no painel).
+- **Eventos com bilhete pago** (algum lote com preço > 0) não aceitam inscrição aqui: a página mostra os preços e o botão «Comprar bilhete» para `ETK_PUBLIC_EVENT_URL`. **Eventos grátis** continuam a ter inscrição, presença por QR e pontos no RWB, com a lotação definida na ETK.
+- A primeira sincronização não envia notificações push; os eventos novos seguintes enviam.
+- Se a ETK estiver em baixo, a app continua a funcionar com os eventos já copiados.
+
+## PWA no telemóvel
+
+- **Android:** instalável pelo botão «Instalar RWB» (página inicial) ou pelo menu do Chrome.
+- **iPhone:** o Safari não tem botão de instalar, por isso a app mostra um guia («Partilhar → Adicionar ao ecrã principal») e ecrãs de arranque próprios (`python scripts/make_ios_splash.py` volta a gerá-los).
+- **Offline:** o cartão de membro, o dashboard, eventos, ranking e loja ficam guardados depois da primeira visita; com rede fraca (>4 s) mostra-se a cópia guardada e um aviso. Terminar sessão ou mudar de membro apaga as cópias.
+- **Staff:** o botão «Ler QR» do painel abre a câmara do navegador e leva à ficha do sócio para marcar presença (precisa de HTTPS).
+
+## Notificações (PWA)
+
+Web Push com chaves VAPID, sem Firebase nem conta de loja. No **Android** funciona no browser ou na PWA instalada; no **iPhone** (iOS 16.4+) só com a app instalada no ecrã principal — o Perfil explica isso ao membro.
+O membro liga/desliga em **Perfil → Notificações**. Avisos enviados: evento novo (uma vez, quando fica publicado), lembrete 24 h antes, pagamento recebido / encomenda pronta, premium activado.
+O envio corre numa thread do servidor (sem fila externa); subscrições mortas (404/410) são apagadas sozinhas. Se o volume crescer muito, mover para uma fila (Celery/RQ).
 
 ---
 

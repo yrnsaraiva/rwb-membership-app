@@ -62,3 +62,11 @@ class ActivateSubscriptionForm(forms.Form):
         label="Método", choices=[c for c in Subscription.Method.choices if c[0] != Subscription.Method.MPESA_C2B]
     )
     payment_reference = forms.CharField(label="Referência / recibo", max_length=80, required=False)
+
+
+class ExternalEventForm(forms.ModelForm):
+    """Eventos vindos da ETK: nome, data, local e bilhetes são da ETK; aqui só se edita o que é específico do clube."""
+
+    class Meta:
+        model = Event
+        fields = ["meeting_point", "map_url", "distances", "checkin_points", "members_only"]

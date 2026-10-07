@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.contrib import admin
 from unfold.admin import ModelAdmin, TabularInline
 
@@ -21,6 +22,18 @@ class EventAdmin(ModelAdmin):
     prepopulated_fields = {"slug": ["title"]}
     date_hierarchy = "starts_at"
     inlines = [RegistrationInline]
+    SYNCED = ("title", "slug", "kind", "summary", "description", "cover", "is_published", "starts_at", "ends_at", "location",
+              "capacity", "registration_opens_at", "registration_closes_at", "price_mzn")
+
+    def get_readonly_fields(self, request, obj=None):
+        # Eventos da ETK: o que a ETK controla só se muda lá (o sincronizador repõe-no a cada execução)
+        if obj is not None and obj.is_external:
+            return self.SYNCED
+        return super().get_readonly_fields(request, obj)
+
+    def has_add_permission(self, request):
+        return not settings.ETK_ENABLED and super().has_add_permission(request)
+
     fieldsets = (
         (None, {"fields": ("title", "slug", "kind", "summary", "description", "cover", "is_published")}),
         ("Quando e onde", {"fields": ("starts_at", "ends_at", "location", "meeting_point", "map_url", "distances")}),

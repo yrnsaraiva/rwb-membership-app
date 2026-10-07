@@ -31,6 +31,8 @@ def manifest(request):
     data = {
         "name": "RunWithBroto",
         "short_name": "RWB",
+        "id": "/",
+        "categories": ["sports", "health", "lifestyle"],
         "description": "Clube de corrida RunWithBroto — eventos, corridas, pontos e ranking.",
         "lang": "pt-MZ",
         "start_url": "/atividade/?source=pwa",
@@ -59,8 +61,10 @@ def service_worker(request):
         "version": getattr(settings, "RELEASE", "v1"),
         "css_url": static("css/app.css"),
         "js_url": static("js/app.js"),
+        "pwa_url": static("js/pwa.js"),
         "components_url": static("css/components.css"),
         "icon_url": static("img/icons/icon-192.png"),
+        "badge_url": static("img/icons/favicon-64.png"),
     }, content_type="application/javascript")
     response["Service-Worker-Allowed"] = "/"
     response["Cache-Control"] = "no-cache"

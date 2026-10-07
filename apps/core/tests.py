@@ -21,3 +21,38 @@ class CoreTests(TestCase):
 
         call_command("seed_demo", verbosity=0)
         self.assertEqual(self.client.get("/ranking/").status_code, 200)
+
+
+class PwaInstallTests(TestCase):
+    def test_ios_install_guide_and_splash_screens_are_in_pages(self):
+        html = self.client.get("/").content.decode()
+        self.assertIn("data-ios-install", html)
+        self.assertIn("apple-touch-startup-image", html)
+        self.assertIn("js/pwa.js", html)
+
+    def test_splash_images_exist_for_every_link(self):
+        import re
+        from pathlib import Path
+
+        from django.conf import settings
+
+        html = self.client.get("/").content.decode()
+        names = re.findall(r"img/splash/(splash-\d+x\d+\.png)", html)
+        self.assertGreaterEqual(len(names), 10)
+        for name in names:
+            self.assertTrue((Path(settings.BASE_DIR) / "static/img/splash" / name).exists(), name)
+
+    def test_manifest_has_stable_id(self):
+        self.assertEqual(self.client.get("/manifest.webmanifest").json()["id"], "/")
+
+
+class ServiceWorkerTests(TestCase):
+    def test_sw_has_push_and_offline_handlers(self):
+        body = self.client.get("/sw.js").content.decode()
+        for needle in ("addEventListener(\"push\"", "notificationclick", "NETWORK_TIMEOUT_MS", "rwb-cache", "js/pwa.js"):
+            self.assertIn(needle, body)
+        self.assertNotIn("{{", body)  # nenhuma variável do template por resolver
+
+    def test_cart_and_forms_are_never_cached_by_the_sw(self):
+        body = self.client.get("/sw.js").content.decode()
+        self.assertIn("carrinho|checkout|encomendas", body)

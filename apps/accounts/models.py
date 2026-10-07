@@ -112,3 +112,4 @@ class User(AbstractUser):
     @property
     def member_since(self):
         return timezone.localtime(self.date_joined).date()
+

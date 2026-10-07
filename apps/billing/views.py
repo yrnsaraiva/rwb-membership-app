@@ -3,8 +3,7 @@ from django.contrib.auth.decorators import login_required
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 
-from apps.core.emails import notify_staff
-
+from . import services
 from .models import Plan, Subscription
 
 
@@ -22,15 +21,11 @@ def plans(request):
 @require_POST
 def request_subscription(request, slug):
     plan = get_object_or_404(Plan, slug=slug, is_active=True)
-    if Subscription.objects.pending().filter(user=request.user).exists():
-        messages.info(request, "Já tens um pedido pendente. O clube vai confirmá-lo em breve.")
+    try:
+        services.request_subscription(request.user, plan)
+    except services.SubscriptionError as exc:
+        messages.info(request, str(exc))
         return redirect("billing:plans")
-    sub = Subscription.objects.create(user=request.user, plan=plan, amount_mzn=plan.price_mzn)
-    notify_staff(
-        f"Novo pedido de subscrição: {request.user.display_name}",
-        f"{request.user.display_name} ({request.user.member_number}, {request.user.phone or request.user.email}) "
-        f"pediu o plano {plan.name} — {plan.price_mzn} MZN. Pedido #{sub.pk}.",
-    )
     messages.success(request, "Pedido registado! O clube vai entrar em contacto para confirmar o pagamento.")
     return redirect("billing:plans")
 
@@ -38,8 +33,7 @@ def request_subscription(request, slug):
 @login_required
 @require_POST
 def cancel_request(request, pk):
-    sub = get_object_or_404(Subscription, pk=pk, user=request.user, status=Subscription.Status.PENDING)
-    sub.status = Subscription.Status.CANCELLED
-    sub.save(update_fields=["status", "updated_at"])
+    get_object_or_404(Subscription, pk=pk, user=request.user, status=Subscription.Status.PENDING)
+    services.cancel_request(request.user, pk)
     messages.info(request, "Pedido cancelado.")
     return redirect("billing:plans")

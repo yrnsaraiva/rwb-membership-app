@@ -57,6 +57,14 @@ class Event(models.Model):
     is_published = models.BooleanField("publicado", default=True)
     created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
                                    related_name="+", verbose_name="criado por")
+    announced_at = models.DateTimeField("anunciado por push em", null=True, blank=True, editable=False)
+
+    # Eventos vindos da API de bilhetes (ETK) — ver apps/events/etk.py. Estes campos só o sincronizador altera.
+    external_id = models.CharField("ID na ETK", max_length=40, unique=True, null=True, blank=True, editable=False)
+    external_url = models.URLField("página de bilhetes", blank=True, editable=False)
+    image_url = models.URLField("imagem (URL)", blank=True, editable=False)
+    ticket_prices = models.JSONField("bilhetes", default=list, blank=True, editable=False)
+    synced_at = models.DateTimeField("sincronizado em", null=True, blank=True, editable=False)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -83,6 +91,31 @@ class Event(models.Model):
 
     def get_absolute_url(self):
         return reverse("events:detail", args=[self.slug])
+
+    # --- Origem externa (ETK) ------------------------------------------------------
+    @property
+    def is_external(self):
+        return bool(self.external_id)
+
+    @property
+    def cover_url(self):
+        if self.cover:
+            return self.cover.url
+        return self.image_url
+
+    @property
+    def has_paid_ticket(self):
+        """Algum lote de bilhetes tem preço > 0: a inscrição faz-se (e paga-se) na ETK, não aqui."""
+        return any(float(p.get("amount") or 0) > 0 for p in self.ticket_prices)
+
+    @property
+    def min_ticket_price(self):
+        amounts = [float(p.get("amount") or 0) for p in self.ticket_prices if p.get("status") == "active"]
+        return min(amounts) if amounts else 0
+
+    @property
+    def tickets_available(self):
+        return sum(int(p.get("available") or 0) for p in self.ticket_prices if p.get("status") == "active")
 
     # --- Regras de vagas e inscrição -------------------------------------------
     @property
@@ -139,6 +172,7 @@ class Registration(models.Model):
     checked_in_at = models.DateTimeField("presença registada em", null=True, blank=True)
     created_at = models.DateTimeField("inscrito em", auto_now_add=True)
     cancelled_at = models.DateTimeField("cancelado em", null=True, blank=True)
+    reminder_sent_at = models.DateTimeField("lembrete enviado em", null=True, blank=True, editable=False)
 
     class Meta:
         verbose_name = "inscrição"

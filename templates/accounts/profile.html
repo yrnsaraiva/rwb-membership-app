@@ -41,6 +41,15 @@
   <div class="flex justify-between gap-4"><span class="text-muted">No ranking</span><span>{% if user.show_on_leaderboard %}Visível{% else %}Oculto{% endif %}</span></div>
 </section>
 
+{% if VAPID_PUBLIC_KEY %}
+<section class="card card-pad mt-6" data-push data-vapid-key="{{ VAPID_PUBLIC_KEY }}">
+  <p class="stat-label mb-2">Notificações</p>
+  <p class="text-sm text-muted" data-push-status>A verificar…</p>
+  <button type="button" class="btn btn-primary btn-sm mt-3" data-push-toggle hidden></button>
+  <button type="button" class="btn btn-ghost btn-sm mt-3" data-ios-install-open hidden>Como instalar no iPhone</button>
+</section>
+{% endif %}
+
 <section class="card card-pad mt-6">
   <p class="stat-label mb-3">Aparência</p>
   <div class="tabs" role="group" aria-label="Tema">

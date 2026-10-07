@@ -5,8 +5,8 @@
 {% block content %}
 <a href="{% url 'events:list' %}" class="text-sm text-muted inline-flex items-center gap-1 mb-3">{% include "icons/chevron-left.svg" with cls="w-4 h-4" %} Eventos</a>
 
-<div class="rounded-[20px] overflow-hidden border border-line aspect-[16/9] {% if not event.cover %}cover-fallback{% endif %} relative">
-  {% if event.cover %}<img src="{{ event.cover.url }}" alt="" class="w-full h-full object-cover">{% endif %}
+<div class="rounded-[20px] overflow-hidden border border-line aspect-[16/9] {% if not event.cover_url %}cover-fallback{% endif %} relative">
+  {% if event.cover_url %}<img src="{{ event.cover_url }}" alt="" class="w-full h-full object-cover" referrerpolicy="no-referrer">{% endif %}
   <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-black/10 to-transparent"></div>
   <div class="absolute left-4 right-4 bottom-4">
     <div class="flex gap-2 mb-2 flex-wrap">
@@ -37,7 +37,9 @@
   {% endif %}
   <div class="card card-pad">
     <p class="stat-label flex items-center gap-1.5">{% include "icons/users.svg" with cls="w-3.5 h-3.5" %} Vagas</p>
-    {% if event.capacity %}
+    {% if event.has_paid_ticket %}
+      <p class="font-semibold mt-1.5 tabular">{% if event.tickets_available %}{{ event.tickets_available }} bilhete{{ event.tickets_available|pluralize }}{% else %}<span class="text-danger">Esgotado</span>{% endif %}</p>
+    {% elif event.capacity %}
       <p class="font-semibold mt-1.5 tabular">{% if event.is_full %}<span class="text-danger">Esgotado</span>{% else %}{{ event.spots_left }} de {{ event.capacity }}{% endif %}</p>
       <div class="progress mt-2 {% if event.spots_left <= 5 %}is-hot{% endif %}"><span style="width: {% widthratio event.confirmed_total event.capacity 100 %}%"></span></div>
     {% else %}
@@ -45,7 +47,16 @@
       <p class="text-sm text-muted">{{ event.confirmed_total }} inscrito{{ event.confirmed_total|pluralize }}</p>
     {% endif %}
   </div>
-  {% if event.price_mzn %}
+  {% if event.ticket_prices %}
+  <div class="card card-pad col-span-2">
+    <p class="stat-label">Bilhetes</p>
+    <ul class="mt-1.5 divide-y divide-line">
+      {% for p in event.ticket_prices %}
+        <li class="flex justify-between gap-3 py-1.5 text-sm"><span>{{ p.name }}</span><span class="font-semibold tabular">{% if p.amount %}{{ p.amount|floatformat:"0g" }} {{ p.currency }}{% else %}Grátis{% endif %}</span></li>
+      {% endfor %}
+    </ul>
+  </div>
+  {% elif event.price_mzn %}
   <div class="card card-pad">
     <p class="stat-label">Preço</p>
     <p class="font-semibold mt-1.5">{{ event.price_mzn|mzn }}</p>
@@ -85,6 +96,10 @@
     </div>
   {% elif event.is_past %}
     <p class="text-muted text-center">Este evento já aconteceu.</p>
+  {% elif event.has_paid_ticket %}
+    <p class="font-semibold">Bilhetes</p>
+    <p class="text-sm text-muted mb-4">A inscrição neste evento faz-se com bilhete{% if event.external_url %}, no site de bilhetes{% endif %}.</p>
+    {% if event.external_url and event.tickets_available %}<a href="{{ event.external_url }}" target="_blank" rel="noopener" class="btn btn-primary btn-block">Comprar bilhete ↗</a>{% elif not event.tickets_available %}<p class="font-semibold text-danger">Bilhetes esgotados</p>{% endif %}
   {% elif not user.is_authenticated %}
     <p class="font-semibold">Queres participar?</p>
     <p class="text-sm text-muted mb-4">Entra ou cria a tua conta de membro (grátis) para te inscreveres.</p>

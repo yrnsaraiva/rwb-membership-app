@@ -7,6 +7,7 @@ from django.db.models import F
 from django.utils import timezone
 
 from apps.core.emails import notify_staff, send_templated_email
+from apps.notifications import services as push
 
 from .models import Order, OrderItem, ProductVariant
 
@@ -93,6 +94,8 @@ def mark_paid(order, method=Order.Method.MPESA_MANUAL, reference=""):
     order.paid_at = timezone.now()
     order.save()
     transaction.on_commit(lambda: send_templated_email("order_status", order.user.email, {"order": order, "user": order.user}))
+    push.notify(order.user, f"Pagamento recebido — {order.number}", "A tua encomenda está a ser preparada.",
+                url=order.get_absolute_url(), tag=f"order-{order.pk}")
     return order
 
 
@@ -109,6 +112,8 @@ def advance(order, status):
     order.save()
     if status == Order.Status.READY:
         transaction.on_commit(lambda: send_templated_email("order_status", order.user.email, {"order": order, "user": order.user}))
+        push.notify(order.user, f"Encomenda {order.number} pronta", "Já podes levantar ou receber a tua encomenda.",
+                    url=order.get_absolute_url(), tag=f"order-{order.pk}")
     return order
 
 

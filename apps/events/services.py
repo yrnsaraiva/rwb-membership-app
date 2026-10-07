@@ -17,6 +17,8 @@ def register(user, event: Event, distance: str = "") -> Registration:
     event = Event.objects.select_for_update().get(pk=event.pk)
     if not event.registration_is_open:
         raise RegistrationError("As inscrições para este evento não estão abertas.")
+    if event.has_paid_ticket:
+        raise RegistrationError("Este evento tem bilhete pago: a inscrição faz-se no site de bilhetes.")
     if event.members_only and not user.is_premium:
         raise RegistrationError("Este evento é exclusivo para membros premium.")
 

@@ -17,7 +17,7 @@
   <section class="card card-pad lg:col-span-2">
     <div class="flex items-center justify-between mb-4">
       <h2 class="text-lg font-semibold">Próximos eventos</h2>
-      <a href="{% url 'panel:event_create' %}" class="btn btn-primary btn-sm">{% include "icons/plus.svg" with cls="w-4 h-4" %} Novo evento</a>
+      {% if not ETK_ENABLED %}<a href="{% url 'panel:event_create' %}" class="btn btn-primary btn-sm">{% include "icons/plus.svg" with cls="w-4 h-4" %} Novo evento</a>{% endif %}
     </div>
     <div class="divider">
       {% for e in upcoming %}

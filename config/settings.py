@@ -72,6 +72,7 @@ INSTALLED_APPS = [
     "django.contrib.humanize",
     "rest_framework",
     "rest_framework.authtoken",
+    "drf_spectacular",
     # Módulos do RWB
     "apps.core",
     "apps.accounts",
@@ -80,6 +81,7 @@ INSTALLED_APPS = [
     "apps.leaderboard",
     "apps.billing",
     "apps.shop",
+    "apps.notifications",
     "apps.panel",
     "apps.api",
 ]
@@ -221,10 +223,44 @@ REST_FRAMEWORK = {
         "rest_framework.throttling.AnonRateThrottle",
         "rest_framework.throttling.UserRateThrottle",
     ],
-    "DEFAULT_THROTTLE_RATES": {"anon": "60/min", "user": "240/min", "login": "10/min"},
+    "DEFAULT_THROTTLE_RATES": {"anon": "60/min", "user": "240/min", "login": "10/min", "register": "10/hour",
+                              "password_reset": "5/hour"},
     "NUM_PROXIES": TRUSTED_PROXY_COUNT,
+    "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
 }
+
+SPECTACULAR_SETTINGS = {
+    "TITLE": "RunWithBroto API",
+    "DESCRIPTION": (
+        "API REST do clube de corrida RunWithBroto (membros, eventos, corridas, pontos e ranking).\n\n"
+        "**Autenticação:** `POST /api/v1/auth/token/` com `{username: email, password}` devolve um token; "
+        "enviar em todos os pedidos como `Authorization: Token <token>`. Os tokens expiram (ver `expires_in`)."
+    ),
+    "VERSION": "1.0.0",
+    "SERVE_INCLUDE_SCHEMA": False,
+    "SCHEMA_PATH_PREFIX": r"/api/v1",
+    "COMPONENT_SPLIT_REQUEST": True,
+    "ENUM_NAME_OVERRIDES": {
+        "RegistrationStatusEnum": "apps.events.models.Registration.Status",
+        "OrderStatusEnum": "apps.shop.models.Order.Status",
+        "SubscriptionStatusEnum": "apps.billing.models.Subscription.Status",
+    },
+    "SERVERS": [{"url": SITE_URL}],
+}
+# Web Push (PWA): gerar as chaves com `python manage.py generate_vapid_keys`
+VAPID_PUBLIC_KEY = env("VAPID_PUBLIC_KEY", "")
+VAPID_PRIVATE_KEY = env("VAPID_PRIVATE_KEY", "")
+VAPID_CONTACT = env("VAPID_CONTACT", "mailto:no-reply@runwithbroto.co.mz")  # contacto do emissor exigido pelo protocolo
+PUSH_SYNC = TESTING  # em testes, envia no próprio pedido (sem threads)
 API_TOKEN_TTL_DAYS = int(env("API_TOKEN_TTL_DAYS", "30"))  # os tokens da API expiram e são renovados no login
+
+# Eventos vindos da API de bilhetes (ETK) -------------------------------------------------------
+ETK_BASE = env("ETK_BASE", "").rstrip("/")            # ex.: https://etk-api.up.railway.app
+ETK_API_KEY = env("ETK_API_KEY", "")                  # chave de parceiro: etk_live_...
+ETK_EVENTS_PATH = env("ETK_EVENTS_PATH", "/back/borrow/external/events")
+ETK_PUBLIC_EVENT_URL = env("ETK_PUBLIC_EVENT_URL", "")  # página de bilhetes de um evento, ex.: https://runwithbroto.co.mz/eventos/{id}
+ETK_TIMEOUT = int(env("ETK_TIMEOUT", "15"))
+ETK_ENABLED = bool(ETK_BASE and ETK_API_KEY)          # ligado: os eventos vêm da ETK e o painel deixa de os criar
 
 # Regras de negócio (pontos) ---------------------------------------------------
 RWB_POINTS_PER_KM = int(env("RWB_POINTS_PER_KM", "10"))

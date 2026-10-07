@@ -19,10 +19,12 @@
       document.querySelector("meta[data-theme-color]").setAttribute("content", t === "dark" ? "#0B0B0B" : "#FFFFFF");
     })();
   </script>
+  {% if user.is_authenticated %}<meta name="rwb-auth" content="{{ user.pk }}">{% endif %}
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="RWB">
+  {% include "partials/ios_splash.html" %}
   <link rel="manifest" href="{% url 'core:manifest' %}">
   <link rel="icon" type="image/png" sizes="64x64" href="{% static 'img/icons/favicon-64.png' %}">
   <link rel="icon" type="image/png" sizes="192x192" href="{% static 'img/icons/icon-192.png' %}">
@@ -47,6 +49,7 @@
 </head>
 <body class="min-h-screen">
   <a href="#main" class="skip-link">Saltar para o conteúdo</a>
+  <div class="offline-banner" data-offline-banner role="status" hidden>{% include "icons/wifi-off.svg" with cls="w-4 h-4" %} Sem ligação ou rede fraca — a mostrar dados guardados no telemóvel.</div>
 
   <header class="topbar">
     <div class="{% block container_class %}max-w-3xl{% endblock %} mx-auto px-4 h-14 flex items-center justify-between gap-3">
@@ -127,7 +130,9 @@
     </nav>
   {% endif %}
 
+  {% include "partials/ios_install.html" %}
   <script src="{% static 'js/app.js' %}" defer></script>
+  <script src="{% static 'js/pwa.js' %}" defer></script>
   {% block scripts %}{% endblock %}
 </body>
 </html>

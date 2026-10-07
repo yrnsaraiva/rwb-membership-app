@@ -92,7 +92,7 @@ a { color: inherit; text-decoration: none; }
 .border-danger { border-color: var(--danger) !important; }
 
 /* Logótipo: amarelo no escuro, preto no claro ---------------------------------- */
-.brand-logo { display: block; height: auto; }
+.brand-logo { display: block; max-width: 100%; object-fit: contain; object-position: left center; }  /* a altura vem das classes h-* do Tailwind */
 [data-theme="light"] .brand-logo--dark, [data-theme="dark"] .brand-logo--light { display: none; }
 .logo { font-family: var(--font-display); font-weight: 700; font-size: 1.35rem; letter-spacing: .02em; text-transform: uppercase; }
 
@@ -303,3 +303,39 @@ a { color: inherit; text-decoration: none; }
 
 .choice-card input[type=radio] { margin-top: .2rem; width: 18px; height: 18px; accent-color: var(--brand); }
 .choice-card:has(input:checked) { border-color: var(--brand-border); background: var(--brand-tint); }
+
+/* Guia de instalação no iOS */
+.ios-install { position: fixed; left: 1rem; right: 1rem; z-index: 60; max-width: 420px; margin: 0 auto;
+  bottom: calc(env(safe-area-inset-bottom) + 1rem); padding: 1rem 1.1rem 1.1rem; border-radius: 18px;
+  background: var(--surface); border: 1px solid var(--brand-border); box-shadow: 0 12px 40px rgba(0,0,0,.35); }
+body:has(.tabbar) .ios-install { bottom: calc(env(safe-area-inset-bottom) + 92px); }
+@media (min-width: 768px) { body:has(.tabbar) .ios-install { bottom: calc(env(safe-area-inset-bottom) + 1rem); } }
+.ios-install[hidden] { display: none; }
+.ios-install-close { position: absolute; top: .5rem; right: .5rem; padding: .35rem; color: var(--muted); border-radius: 999px; }
+.ios-steps { list-style: none; margin: .9rem 0 0; padding: 0; display: grid; gap: .6rem; font-size: .9rem; }
+.ios-steps li { display: flex; gap: .65rem; align-items: flex-start; }
+.ios-step-n { flex: none; width: 1.5rem; height: 1.5rem; border-radius: 999px; display: grid; place-items: center;
+  background: var(--brand); color: var(--brand-ink); font-weight: 700; font-size: .8rem; }
+.ios-share { display: inline-flex; vertical-align: middle; color: var(--accent); }
+
+/* Leitor de QR (staff) */
+.scanner { position: fixed; inset: 0; z-index: 80; background: #000; color: #fff; display: grid; place-items: center; }
+.scanner[hidden] { display: none; }
+.scanner video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.scanner-top { position: absolute; top: 0; left: 0; right: 0; display: flex; align-items: center; justify-content: space-between;
+  padding: calc(env(safe-area-inset-top) + .75rem) 1rem .75rem; background: linear-gradient(#000a, transparent); }
+.scanner-close { padding: .5rem; border-radius: 999px; background: #0008; }
+.scanner-frame { position: relative; width: min(70vw, 300px); aspect-ratio: 1; box-shadow: 0 0 0 100vmax #0006; border-radius: 18px; }
+.scanner-frame i { position: absolute; width: 34px; height: 34px; border: 4px solid var(--brand); }
+.scanner-frame i:nth-child(1) { top: 0; left: 0; border-right: 0; border-bottom: 0; border-top-left-radius: 18px; }
+.scanner-frame i:nth-child(2) { top: 0; right: 0; border-left: 0; border-bottom: 0; border-top-right-radius: 18px; }
+.scanner-frame i:nth-child(3) { bottom: 0; left: 0; border-right: 0; border-top: 0; border-bottom-left-radius: 18px; }
+.scanner-frame i:nth-child(4) { bottom: 0; right: 0; border-left: 0; border-top: 0; border-bottom-right-radius: 18px; }
+.scanner-msg { position: absolute; left: 1rem; right: 1rem; bottom: calc(env(safe-area-inset-bottom) + 2rem); text-align: center;
+  padding: .7rem 1rem; border-radius: 14px; background: #000b; font-size: .95rem; }
+body.scanner-open { overflow: hidden; }
+
+/* Aviso de modo offline */
+.offline-banner { display: flex; align-items: center; justify-content: center; gap: .5rem; padding: .45rem 1rem; font-size: .8rem;
+  background: var(--surface-2); color: var(--muted); border-bottom: 1px solid var(--line); }
+.offline-banner[hidden] { display: none; }
