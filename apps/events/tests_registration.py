@@ -44,7 +44,7 @@ class BuyTicketTests(TestCase):
         kw = m.call_args.kwargs
         self.assertEqual((kw["price_id"], kw["event_id"], kw["phone"], kw["email"], kw["payment_method"]),
                          ("PRC1", "EVNT1", "258841234567", "ana@x.mz", ""))
-        self.assertEqual(kw["external_reference"], f"rwb:{self.ana.pk}:EVNT1")  # evita bilhetes duplicados em retries
+        self.assertEqual(kw["external_reference"], f"rwb:{self.ana.pk}:258841234567:EVNT1")  # evita bilhetes duplicados em retries
         self.assertEqual(len(mail.outbox), 1)
 
     def test_paid_ticket_via_emola_stays_pending_until_paid(self):
@@ -109,6 +109,36 @@ class BuyTicketTests(TestCase):
         with self.assertRaisesMessage(tickets.TicketError, "não estão abertas"):
             tickets.buy_ticket(other, self.event)
 
+    def test_lost_response_is_recovered_by_external_reference(self):
+        """O gateway demorou e o pedido deu timeout, mas a ETK chegou a criar o bilhete: aproveita-o em vez de falhar."""
+        mine = ticket(externalReference=f"rwb:{self.ana.pk}:258841234567:EVNT1")
+        other = ticket(id="TCKT999", externalReference="rwb:99:EVNT1")
+        with mock.patch("apps.events.tickets.etk.create_ticket", side_effect=etk.EtkError("timeout")), \
+                mock.patch("apps.events.tickets.etk.fetch_tickets", return_value=[other, mine]) as f:
+            reg = tickets.buy_ticket(self.ana, self.event)
+        self.assertEqual((reg.external_ticket_id, reg.status), ("TCKT100", "confirmed"))
+        self.assertEqual((f.call_args.kwargs["phone"], f.call_args.kwargs["event_id"]), ("258841234567", "EVNT1"))
+
+    def test_lost_response_with_no_ticket_found_is_a_friendly_error(self):
+        with mock.patch("apps.events.tickets.etk.create_ticket", side_effect=etk.EtkError("timeout")), \
+                mock.patch("apps.events.tickets.etk.fetch_tickets", return_value=[ticket(payment="failed", externalReference=f"rwb:{self.ana.pk}:258841234567:EVNT1")]):
+            with self.assertRaisesMessage(tickets.TicketError, "Não foi possível falar"):
+                tickets.buy_ticket(self.ana, self.event)
+
+    def test_ticket_of_another_phone_is_never_mirrored(self):
+        """Se a deduplicação da ETK devolvesse o bilhete de outra pessoa (referência repetida), não é espelhado."""
+        with mock.patch("apps.events.tickets.etk.create_ticket", return_value=ticket(phone="258827654321")):
+            with self.assertRaisesMessage(tickets.TicketError, "Contacta o clube"):
+                tickets.buy_ticket(self.ana, self.event)
+        self.assertFalse(Registration.objects.exists())
+
+    def test_card_is_an_accepted_method(self):
+        Event.objects.update(ticket_prices=[price(amount=300.0)])
+        self.event.refresh_from_db()
+        reg, m = self.buy(ticket(payment="pending", amount=300.0, checkoutUrl="https://pay.example/c/1"), payment_method="card")
+        self.assertEqual(m.call_args.kwargs["payment_method"], "card")
+        self.assertEqual(reg.ticket_checkout_url, "https://pay.example/c/1")
+
     def test_etk_rejection_and_outage_become_friendly_errors(self):
         with mock.patch("apps.events.tickets.etk.create_ticket", side_effect=etk.EtkRejected("Bilhetes esgotados.")):
             with self.assertRaisesMessage(tickets.TicketError, "Bilhetes esgotados."):
@@ -132,10 +162,15 @@ class BuyTicketTests(TestCase):
         self.event.save()
         reg, _ = self.buy(ticket(payment="preregistered"))
         self.assertEqual((reg.status, reg.ticket_payment), ("confirmed", "preregistered"))
-        with mock.patch("apps.events.tickets.etk.confirm_ticket", return_value=ticket()) as c:
+        self.assertEqual(len(mail.outbox), 0)  # ainda não há lugar garantido: nada de «inscrição confirmada»
+        # o bilhete foi ligado por email e tem outro telemóvel: a confirmação tem de usar o do bilhete
+        with mock.patch("apps.events.tickets.etk.get_ticket", return_value=ticket(payment="preregistered", phone="258827654321")), \
+                mock.patch("apps.events.tickets.etk.confirm_ticket", return_value=ticket()) as c, \
+                self.captureOnCommitCallbacks(execute=True):
             reg = tickets.confirm_presence(self.ana, self.event)
-        c.assert_called_once_with("TCKT100", "258841234567")
+        c.assert_called_once_with("TCKT100", "258827654321")
         self.assertEqual(reg.ticket_payment, "paid")
+        self.assertEqual(len(mail.outbox), 1)  # agora sim
         with self.assertRaises(tickets.TicketError):
             tickets.confirm_presence(self.ana, self.event)
 
@@ -190,6 +225,25 @@ class MirrorTests(TestCase):
         with mock.patch("apps.events.tickets.etk.fetch_tickets", return_value=[]) as f:
             tickets.sync_tickets()
         self.assertIsNotNone(f.call_args.kwargs["since"])
+
+    def test_cursor_advances_even_when_tickets_belong_to_non_members(self):
+        from apps.events.models import SyncCursor
+
+        with mock.patch("apps.events.tickets.etk.fetch_tickets", return_value=[ticket(phone="258827654321")]):
+            tickets.sync_tickets()
+        self.assertTrue(SyncCursor.objects.filter(name="etk_tickets").exists())
+        with mock.patch("apps.events.tickets.etk.fetch_tickets", side_effect=etk.EtkError("down")):
+            before = SyncCursor.objects.get(name="etk_tickets").synced_at
+            with self.assertRaises(etk.EtkError):
+                tickets.sync_tickets()
+        self.assertEqual(SyncCursor.objects.get(name="etk_tickets").synced_at, before)  # falhou: não avança
+
+    def test_full_sync_ignores_the_cursor(self):
+        with mock.patch("apps.events.tickets.etk.fetch_tickets", return_value=[]):
+            tickets.sync_tickets()
+        with mock.patch("apps.events.tickets.etk.fetch_tickets", return_value=[]) as f:
+            tickets.sync_tickets(full=True)
+        f.assert_called_once_with(since=None)
 
     def test_expired_pending_reservations_are_rechecked(self):
         reg = tickets.upsert_registration(ticket(payment="pending", expiresAt=(timezone.now() - timedelta(minutes=1)).isoformat()))

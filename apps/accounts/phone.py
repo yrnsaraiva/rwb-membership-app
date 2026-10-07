@@ -7,7 +7,7 @@ def normalize_phone(raw) -> str:
     digits = re.sub(r"\D", "", str(raw or ""))
     if digits.startswith("00"):
         digits = digits[2:]
-    if re.fullmatch(r"258[82-7]\d{8}", digits):
+    if re.fullmatch(r"2588[2-7]\d{7}", digits):  # telemóveis: 82/83 (Tmcel), 84/85 (Vodacom), 86/87 (Movitel)
         return digits
     if re.fullmatch(r"8[2-7]\d{7}", digits):
         return "258" + digits

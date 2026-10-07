@@ -228,3 +228,13 @@ class Registration(models.Model):
     @property
     def is_pending_payment(self):
         return self.status == self.Status.PENDING
+
+
+class SyncCursor(models.Model):
+    """Até onde já se leu na ETK (para pedir só os bilhetes alterados desde então)."""
+
+    name = models.CharField(max_length=40, unique=True)
+    synced_at = models.DateTimeField()
+
+    def __str__(self):
+        return f"{self.name}: {self.synced_at:%Y-%m-%d %H:%M}"

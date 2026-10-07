@@ -19,14 +19,15 @@ from apps.notifications import services as push
 
 from . import etk
 from . import services as event_services
-from .models import Event, Registration
+from .models import Event, Registration, SyncCursor
 
 logger = logging.getLogger(__name__)
 
 # estado do pagamento na ETK → estado da inscrição aqui
 CONFIRMED_STATES = {"paid", "invited", "preregistered"}
+ANNOUNCE_STATES = {"paid", "invited"}  # a pré-inscrição ainda não garante lugar: só avisa quando a presença for confirmada
 PENDING_STATES = {"pending", "review"}
-PAYMENT_METHODS = {"mpesa": "M-Pesa", "emola": "e-Mola", "mkesh": "mKesh"}
+PAYMENT_METHODS = {"mpesa": "M-Pesa", "emola": "e-Mola", "mkesh": "mKesh", "card": "Cartão"}
 
 
 class TicketError(Exception):
@@ -88,7 +89,7 @@ def upsert_registration(ticket: dict, user=None, *, via_app=False):
         event_services.check_in(reg)
         reg.refresh_from_db()
 
-    if reg.via_app and previous == Registration.Status.PENDING and new_status == Registration.Status.CONFIRMED:
+    if reg.via_app and previous == Registration.Status.PENDING and payment in ANNOUNCE_STATES:
         _announce_confirmed(reg)
     return reg
 
@@ -129,22 +130,40 @@ def buy_ticket(user, event, price_id="", payment_method="") -> Registration:
     if price["amount"] > 0 and method not in PAYMENT_METHODS:
         raise TicketError("Escolhe como queres pagar.")
 
+    # A ETK deduplica por referência: leva o telemóvel para que bases diferentes (staging, restauros) nunca partilhem bilhetes
+    reference = f"rwb:{user.pk}:{phone}:{event.external_id}"
     try:
         ticket = etk.create_ticket(
             price_id=price["id"], event_id=event.external_id, phone=phone, full_name=_full_name(user), email=user.email,
-            payment_method=method if price["amount"] > 0 else "", external_reference=f"rwb:{user.pk}:{event.external_id}")
+            payment_method=method if price["amount"] > 0 else "", external_reference=reference)
     except etk.EtkRejected as exc:
         raise TicketError(str(exc)) from exc
     except etk.EtkError as exc:
         logger.warning("Falha da ETK ao criar bilhete: %s", exc)
-        raise TicketError("Não foi possível falar com o serviço de bilhetes. Tenta novamente daqui a pouco.") from exc
+        # Pode ter ficado a meio (resposta perdida, gateway lento): se a ETK chegou a criar o bilhete, aproveita-o
+        ticket = _recover_ticket(phone, event, reference)
+        if ticket is None:
+            raise TicketError("Não foi possível falar com o serviço de bilhetes. Tenta novamente daqui a pouco.") from exc
 
+    if ticket.get("phone") != phone:  # defesa: nunca espelhar o bilhete de outra pessoa
+        logger.error("A ETK devolveu o bilhete %s de outro telemóvel para o membro %s", ticket.get("id"), user.pk)
+        raise TicketError("Não foi possível emitir o bilhete. Contacta o clube.")
     reg = upsert_registration(ticket, user, via_app=True)
     if reg is None:  # nunca devia acontecer (evento e membro existem)
         raise TicketError("Bilhete criado, mas não foi possível registá-lo. Contacta o clube.")
-    if reg.status == Registration.Status.CONFIRMED:
+    if reg.ticket_payment in ANNOUNCE_STATES:  # pré-inscrição só se anuncia quando a presença for confirmada
         _announce_confirmed(reg)
     return reg
+
+
+def _recover_ticket(phone, event, reference):
+    try:
+        for t in etk.fetch_tickets(phone=phone, event_id=event.external_id, timeout=6):
+            if t.get("externalReference") == reference and t.get("payment") in ("paid", "pending", "preregistered"):
+                return t
+    except etk.EtkError:
+        pass
+    return None
 
 
 def refresh_registration(reg, timeout=8):
@@ -163,10 +182,15 @@ def confirm_presence(user, event) -> Registration:
     if reg is None or reg.ticket_payment != "preregistered":
         raise TicketError("Não tens uma pré-inscrição por confirmar neste evento.")
     try:
-        ticket = etk.confirm_ticket(reg.external_ticket_id, user.phone_e164)
+        # A confirmação exige o telemóvel do bilhete (pode não ser o do perfil se o bilhete foi ligado por email)
+        phone = etk.get_ticket(reg.external_ticket_id).get("phone") or user.phone_e164
+        ticket = etk.confirm_ticket(reg.external_ticket_id, phone)
     except etk.EtkError as exc:
         raise TicketError(str(exc) if isinstance(exc, etk.EtkRejected) else "Não foi possível confirmar agora. Tenta novamente.") from exc
-    return upsert_registration(ticket, user) or reg
+    reg = upsert_registration(ticket, user) or reg
+    if reg.ticket_payment in ANNOUNCE_STATES:
+        _announce_confirmed(reg)
+    return reg
 
 
 def refresh_member(member, timeout=4):
@@ -178,14 +202,16 @@ def refresh_member(member, timeout=4):
 
 def sync_tickets(full=False) -> dict:
     """Espelha os bilhetes alterados desde a última sincronização (ou todos). Para correr de poucos em poucos minutos."""
+    started = timezone.now()
     since = None
     if not full:
-        last = Registration.objects.filter(external_ticket_id__isnull=False).order_by("-ticket_synced_at").values_list(
-            "ticket_synced_at", flat=True).first()
-        if last:
-            since = (last - timedelta(minutes=2)).isoformat()
+        cursor = SyncCursor.objects.filter(name="etk_tickets").first()
+        if cursor:
+            since = (cursor.synced_at - timedelta(minutes=2)).isoformat()
     tickets = etk.fetch_tickets(since=since)
     matched = sum(1 for t in tickets if upsert_registration(t))
+    # O cursor avança mesmo que os bilhetes sejam de quem não é membro (senão voltavam a ser lidos em cada execução)
+    SyncCursor.objects.update_or_create(name="etk_tickets", defaults={"synced_at": started})
     # Reservas por pagar que a ETK já libertou (ou que ficaram sem notícia) são limpas a pedido, bilhete a bilhete
     stale = Registration.objects.filter(status=Registration.Status.PENDING, ticket_expires_at__lt=timezone.now())
     for reg in stale:

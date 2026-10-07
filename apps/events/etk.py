@@ -56,9 +56,12 @@ def _request(method, path, *, params=None, json=None, timeout=None):
         raise EtkError("ETK não configurada (defina ETK_BASE e ETK_API_KEY).")
     try:
         resp = requests.request(method, settings.ETK_BASE + path, params=params, json=json, timeout=timeout or settings.ETK_TIMEOUT,
+                                allow_redirects=False,  # um 301 transformaria o POST num GET e perderia o pedido
                                 headers={"Authorization": f"Bearer {settings.ETK_API_KEY}", "Accept": "application/json"})
     except requests.RequestException as exc:
         raise EtkError(f"Falha de rede ao contactar a ETK: {exc}") from exc
+    if resp.status_code in (301, 302, 307, 308):
+        raise EtkError("A ETK redirecionou o pedido: confirma que ETK_BASE usa o endereço https:// final, sem redirecionamentos.")
     if resp.status_code in (401, 403):
         raise EtkError("A ETK recusou a chave de API (ETK_API_KEY inválida ou revogada).")
     try:
@@ -155,6 +158,7 @@ def sync_events(prune=True) -> SyncResult:
 
 # --- Bilhetes e entrada --------------------------------------------------------------------
 TICKETS_PATH = "/back/borrow/external/tickets"
+CREATE_TIMEOUT = 50  # o gateway de pagamentos pode demorar; tem de acabar antes do timeout do gunicorn (60 s)
 
 
 def fetch_tickets(*, phone=None, event_id=None, payment=None, since=None, timeout=None) -> list:
@@ -181,7 +185,7 @@ def create_ticket(*, price_id, event_id, phone, full_name="", email="", payment_
     """Emite o bilhete (e inicia o pagamento, se for pago). Devolve o bilhete + `paymentInstructions`."""
     payload = {"priceId": price_id, "eventId": event_id, "phone": phone, "fullName": full_name, "email": email,
                "paymentMethod": payment_method, "externalReference": external_reference}
-    data = _request("POST", TICKETS_PATH, json={k: v for k, v in payload.items() if v}, timeout=max(settings.ETK_TIMEOUT, 30)).get("data")
+    data = _request("POST", TICKETS_PATH, json={k: v for k, v in payload.items() if v}, timeout=CREATE_TIMEOUT).get("data")
     if not isinstance(data, dict) or "id" not in data:
         raise EtkError("Resposta da ETK fora do formato esperado.")
     return data

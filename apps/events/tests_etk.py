@@ -175,3 +175,31 @@ class PanelEtkTests(TestCase):
         with fake_get({}, status=500):
             resp = self.client.post("/painel/eventos/sincronizar/", follow=True)
         self.assertContains(resp, "Não foi possível sincronizar")
+
+
+@override_settings(**ETK)
+class ClientContractTests(TestCase):
+    def reply(self, status, body):
+        resp = mock.Mock(status_code=status)
+        resp.json.return_value = body
+        return mock.patch("apps.events.etk.requests.request", return_value=resp)
+
+    def test_redirects_are_refused_not_followed(self):
+        with self.reply(301, {}) as m, self.assertRaisesMessage(etk.EtkError, "redirecionou"):
+            etk.fetch_events()
+        self.assertIs(m.call_args.kwargs["allow_redirects"], False)
+
+    def test_status_codes_map_to_rejection_or_outage(self):
+        for status, expected in ((400, etk.EtkRejected), (402, etk.EtkRejected), (404, etk.EtkRejected), (409, etk.EtkRejected),
+                                 (401, etk.EtkError), (403, etk.EtkError), (500, etk.EtkError), (502, etk.EtkError)):
+            with self.reply(status, {"status": "error", "message": "x"}), self.assertRaises(expected) as ctx:
+                etk.get_ticket("TCKT1")
+            self.assertEqual(isinstance(ctx.exception, etk.EtkRejected), expected is etk.EtkRejected, status)
+
+    def test_create_ticket_201_and_timeout_below_gunicorn(self):
+        body = {"status": "success", "message": "Ticket created successfully", "data": {"id": "TCKT1", "qrValue": "q"}}
+        with self.reply(201, body) as m:
+            data = etk.create_ticket(price_id="P", event_id="E", phone="258841234567", payment_method="")
+        self.assertEqual(data["id"], "TCKT1")
+        self.assertLess(m.call_args.kwargs["timeout"], 60)
+        self.assertNotIn("paymentMethod", m.call_args.kwargs["json"])  # vazios não são enviados

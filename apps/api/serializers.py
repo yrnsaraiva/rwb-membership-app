@@ -85,7 +85,7 @@ class RegistrationSerializer(serializers.ModelSerializer):
 
 class RegisterRequestSerializer(serializers.Serializer):
     price = serializers.CharField(required=False, allow_blank=True, help_text="`id` do lote (eventos da ETK com mais de um bilhete).")
-    payment_method = serializers.ChoiceField(choices=["mpesa", "emola", "mkesh"], required=False, allow_blank=True,
+    payment_method = serializers.ChoiceField(choices=["mpesa", "emola", "mkesh", "card"], required=False, allow_blank=True,
                                              help_text="Obrigatório em bilhetes pagos: o pedido de pagamento chega ao telemóvel do perfil.")
     distance = serializers.CharField(required=False, allow_blank=True, max_length=20, help_text="Só em eventos que não são da ETK.")
 

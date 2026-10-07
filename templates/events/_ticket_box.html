@@ -70,7 +70,7 @@
     {% if event.has_paid_ticket %}
     <fieldset data-pay-methods {% if not event.sellable_prices.0.amount %}hidden{% endif %}>
       <legend class="label mb-2">Pagar com</legend>
-      <div class="grid grid-cols-3 gap-2">
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
         {% for key, name in payment_methods.items %}
           <label class="cursor-pointer">
             <input type="radio" name="payment_method" value="{{ key }}" class="peer sr-only" {% if forloop.first %}checked{% endif %}>

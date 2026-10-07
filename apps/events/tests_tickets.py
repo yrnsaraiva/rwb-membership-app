@@ -31,7 +31,7 @@ class PhoneTests(TestCase):
     def test_normalize(self):
         for raw in ("+258 84 123 4567", "84 123 4567", "00258841234567", "258841234567", "841234567"):
             self.assertEqual(normalize_phone(raw), "258841234567", raw)
-        for raw in ("", "12345", "+27 82 123 4567", "+258 12 345", None):
+        for raw in ("", "12345", "+27 82 123 4567", "+258 12 345", None, "+258 21 123 456", "880 123 456", "258 80 123 4567"):
             self.assertEqual(normalize_phone(raw), "", raw)
 
     def test_user_phone_is_normalized_on_save_and_update(self):
