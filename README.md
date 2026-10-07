@@ -50,6 +50,7 @@ python manage.py makemigrations --check --dry-run   # confirma que as migraçõe
    - `DJANGO_ALLOWED_HOSTS` e `DJANGO_CSRF_TRUSTED_ORIGINS` — para o domínio próprio (o domínio `*.railway.app` é adicionado automaticamente)
    - `REDIS_URL` — **recomendado em produção**: o rate-limit do login e o ranking precisam de cache partilhada entre workers (`check --deploy` avisa se faltar)
    - `TRUSTED_PROXY_COUNT` — nº de proxies à frente da app (omissão: 1, o Railway); usado para obter o IP real do cliente
+   - Eventos (ETK): `ETK_BASE` (ex.: `https://etk-api.up.railway.app`), `ETK_API_KEY` (`etk_live_…`, chave de parceiro) e `ETK_PUBLIC_EVENT_URL` (link de compra do bilhete, com `{id}`)
    - Notificações push: `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY` (gerar com `python manage.py generate_vapid_keys`) e `VAPID_CONTACT` (`mailto:…`). Sem as chaves o botão «Ativar notificações» não aparece
    - Opcionais: `SENTRY_DSN` (monitorização de erros), `API_TOKEN_TTL_DAYS` (validade dos tokens da API, 30), `RWB_MAX_RUNS_PER_DAY` (4) e `RWB_MAX_DAILY_KM` (100), limites anti-batota
    - Loja: `RWB_SHOP_MPESA_NUMBER`, `RWB_SHOP_MPESA_NAME`, `RWB_SHOP_BANK_DETAILS` (aparecem nas instruções de pagamento), `RWB_SHOP_DELIVERY_FEE`, `RWB_PREMIUM_SHOP_DISCOUNT`
@@ -58,6 +59,7 @@ python manage.py makemigrations --check --dry-run   # confirma que as migraçõe
 7. Tarefas agendadas (Railway Cron, serviço separado com o mesmo código):
    - diário: `python manage.py expire_subscriptions`
    - diário: `python manage.py cancel_stale_orders` (cancela encomendas por pagar há mais de `RWB_SHOP_HOLD_DAYS` dias e devolve o stock)
+   - de 10 em 10 minutos: `python manage.py sync_etk_events` (traz os eventos da ETK)
    - de hora a hora: `python manage.py send_event_reminders` (lembrete push aos inscritos de eventos nas próximas 24 h)
    - semanal (RNF-07): `python manage.py backup_db --keep 8` (grava em `BACKUP_DIR`; montar volume ou sincronizar para armazenamento externo). O Postgres do Railway também tem backups próprios — activar.
 
@@ -146,6 +148,15 @@ Logótipos em `static/img/brand/` (versão amarela para fundo escuro, preta para
 **Tornar alguém administrador do clube:** Django admin → Membros → marcar "staff status". Staff acede a `/painel/`.
 
 ---
+
+## Eventos vindos da ETK
+
+Com `ETK_BASE` + `ETK_API_KEY` definidos, **os eventos são criados na API de bilhetes (ETK)** e copiados para aqui por `python manage.py sync_etk_events` (ou pelo botão «Sincronizar com a ETK» em Painel → Eventos).
+- Vêm da ETK: nome, descrição, tipo, data, local, imagem e bilhetes (preços e disponibilidade). Eventos que a ETK deixa de publicar ou cancela ficam despublicados aqui (as inscrições mantêm-se).
+- Ficam no RWB e **nunca são sobrescritos**: pontos de presença, só-premium, ponto de encontro, mapa e distâncias (editáveis no painel).
+- **Eventos com bilhete pago** (algum lote com preço > 0) não aceitam inscrição aqui: a página mostra os preços e o botão «Comprar bilhete» para `ETK_PUBLIC_EVENT_URL`. **Eventos grátis** continuam a ter inscrição, presença por QR e pontos no RWB, com a lotação definida na ETK.
+- A primeira sincronização não envia notificações push; os eventos novos seguintes enviam.
+- Se a ETK estiver em baixo, a app continua a funcionar com os eventos já copiados.
 
 ## PWA no telemóvel
 

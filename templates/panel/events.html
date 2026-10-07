@@ -4,8 +4,13 @@
 {% block panel %}
 <div class="flex items-center justify-between gap-3 mb-4">
   <h1 class="text-3xl font-semibold">Eventos</h1>
-  <a href="{% url 'panel:event_create' %}" class="btn btn-primary btn-sm">{% include "icons/plus.svg" with cls="w-4 h-4" %} Novo evento</a>
+  {% if ETK_ENABLED %}
+    <form method="post" action="{% url 'panel:events_sync' %}">{% csrf_token %}<button class="btn btn-primary btn-sm">Sincronizar com a ETK</button></form>
+  {% else %}
+    <a href="{% url 'panel:event_create' %}" class="btn btn-primary btn-sm">{% include "icons/plus.svg" with cls="w-4 h-4" %} Novo evento</a>
+  {% endif %}
 </div>
+{% if ETK_ENABLED %}<p class="text-sm text-muted -mt-2 mb-4">Os eventos são criados na ETK e sincronizados automaticamente. Aqui definem-se só os pontos de presença, o acesso premium e o ponto de encontro.</p>{% endif %}
 <div class="tabs mb-4 max-w-xs">
   <a href="?tab=proximos" class="tab {% if tab != 'passados' %}is-active{% endif %}">Próximos</a>
   <a href="?tab=passados" class="tab {% if tab == 'passados' %}is-active{% endif %}">Passados</a>
@@ -16,7 +21,7 @@
     <tbody>
       {% for e in page %}
         <tr>
-          <td><a href="{% url 'panel:event_registrations' e.pk %}" class="font-medium hover:text-accent">{{ e.title }}</a><p class="text-xs text-muted">{{ e.get_kind_display }}</p></td>
+          <td><a href="{% url 'panel:event_registrations' e.pk %}" class="font-medium hover:text-accent">{{ e.title }}</a><p class="text-xs text-muted">{{ e.get_kind_display }}{% if e.is_external %} · ETK{% endif %}</p></td>
           <td class="whitespace-nowrap tabular">{{ e.starts_at|date:"d/m/Y H:i" }}</td>
           <td class="hidden md:table-cell text-muted">{{ e.location }}</td>
           <td class="tabular">{{ e.confirmed_total }}{% if e.capacity %} / {{ e.capacity }}{% endif %}</td>

@@ -37,13 +37,19 @@ class EventSerializer(serializers.ModelSerializer):
     confirmed_total = serializers.IntegerField(read_only=True)
     registration_is_open = serializers.BooleanField(read_only=True)
     is_registered = serializers.SerializerMethodField()
+    cover_url = serializers.CharField(read_only=True)
+    requires_ticket = serializers.BooleanField(source="has_paid_ticket", read_only=True,
+                                               help_text="Bilhete pago: a inscrição faz-se no site de bilhetes (`external_url`).")
+    tickets_available = serializers.IntegerField(read_only=True)
+    ticket_prices = serializers.JSONField(read_only=True)
 
     class Meta:
         model = Event
         fields = ["id", "slug", "title", "kind", "kind_display", "summary", "description", "location", "meeting_point",
                   "map_url", "starts_at", "ends_at", "distances", "capacity", "spots_left", "confirmed_total",
                   "registration_opens_at", "registration_closes_at", "registration_is_open", "price_mzn",
-                  "members_only", "is_registered"]
+                  "members_only", "is_registered", "cover_url", "requires_ticket", "tickets_available", "ticket_prices",
+                  "external_url"]
 
     @extend_schema_field(serializers.BooleanField())
     def get_is_registered(self, obj):

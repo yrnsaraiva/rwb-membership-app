@@ -13,7 +13,9 @@
     </div>
     <h3 class="text-lg font-semibold truncate">{{ event.title }}</h3>
     <p class="text-sm text-muted flex items-center gap-1 truncate">{% include "icons/pin.svg" with cls="w-3.5 h-3.5 flex-none" %}{{ event.location }}{% if event.distances %} · {{ event.distances }}{% endif %}</p>
-    {% if event.capacity %}
+    {% if event.has_paid_ticket %}
+      <p class="mt-1 text-[0.72rem] text-muted">{% if event.tickets_available %}Bilhetes · desde {{ event.min_ticket_price|floatformat:"0g" }} MZN{% else %}<span class="text-danger">Bilhetes esgotados</span>{% endif %}</p>
+    {% elif event.capacity %}
       {% with left=event.spots_left %}
         <div class="mt-2 flex items-center gap-2">
           <div class="progress flex-1 {% if left <= 5 %}is-hot{% endif %}"><span style="width: {% widthratio event.confirmed_total event.capacity 100 %}%"></span></div>

@@ -254,6 +254,14 @@ VAPID_CONTACT = env("VAPID_CONTACT", "mailto:no-reply@runwithbroto.co.mz")  # co
 PUSH_SYNC = TESTING  # em testes, envia no próprio pedido (sem threads)
 API_TOKEN_TTL_DAYS = int(env("API_TOKEN_TTL_DAYS", "30"))  # os tokens da API expiram e são renovados no login
 
+# Eventos vindos da API de bilhetes (ETK) -------------------------------------------------------
+ETK_BASE = env("ETK_BASE", "").rstrip("/")            # ex.: https://etk-api.up.railway.app
+ETK_API_KEY = env("ETK_API_KEY", "")                  # chave de parceiro: etk_live_...
+ETK_EVENTS_PATH = env("ETK_EVENTS_PATH", "/back/borrow/external/events")
+ETK_PUBLIC_EVENT_URL = env("ETK_PUBLIC_EVENT_URL", "")  # página de bilhetes de um evento, ex.: https://runwithbroto.co.mz/eventos/{id}
+ETK_TIMEOUT = int(env("ETK_TIMEOUT", "15"))
+ETK_ENABLED = bool(ETK_BASE and ETK_API_KEY)          # ligado: os eventos vêm da ETK e o painel deixa de os criar
+
 # Regras de negócio (pontos) ---------------------------------------------------
 RWB_POINTS_PER_KM = int(env("RWB_POINTS_PER_KM", "10"))
 RWB_STREAK_BONUS_EVERY = int(env("RWB_STREAK_BONUS_EVERY", "7"))   # a cada N dias seguidos

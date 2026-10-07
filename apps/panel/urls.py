@@ -10,6 +10,7 @@ urlpatterns = [
     path("membros/<int:pk>/", views.member_detail, name="member_detail"),
     path("membros/<int:pk>/estado/", views.member_toggle_active, name="member_toggle_active"),
     path("eventos/", views.events, name="events"),
+    path("eventos/sincronizar/", views.events_sync, name="events_sync"),
     path("eventos/novo/", views.event_form, name="event_create"),
     path("eventos/<int:pk>/editar/", views.event_form, name="event_edit"),
     path("eventos/<int:pk>/apagar/", views.event_delete, name="event_delete"),

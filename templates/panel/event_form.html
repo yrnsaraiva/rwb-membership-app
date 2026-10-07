@@ -3,6 +3,22 @@
 {% block panel %}
 <a href="{% url 'panel:events' %}" class="text-sm text-muted inline-flex items-center gap-1 mb-3">{% include "icons/chevron-left.svg" with cls="w-4 h-4" %} Eventos</a>
 <h1 class="text-3xl font-semibold mb-5">{% if event %}Editar: {{ event.title }}{% else %}Novo evento{% endif %}</h1>
+{% if external %}
+<p class="card card-pad text-sm text-muted mb-4">Este evento vem da <strong class="text-fg">ETK</strong>: o nome, a data, o local, a imagem e os bilhetes mudam-se lá e sincronizam sozinhos. Aqui só se ajusta o que é do clube.</p>
+<form method="post" class="max-w-xl space-y-4" novalidate>
+  {% csrf_token %}
+  {% include "partials/form_errors.html" %}
+  <div class="card card-pad space-y-4">
+    {% include "partials/field.html" with field=form.meeting_point %}
+    {% include "partials/field.html" with field=form.map_url %}
+    {% include "partials/field.html" with field=form.distances %}
+    {% include "partials/field.html" with field=form.checkin_points %}
+    {% include "partials/field.html" with field=form.members_only %}
+  </div>
+  <button class="btn btn-primary btn-block">Guardar</button>
+  <a href="{{ event.get_absolute_url }}" class="btn btn-ghost btn-block" target="_blank">Ver página pública ↗</a>
+</form>
+{% else %}
 <form method="post" enctype="multipart/form-data" class="grid lg:grid-cols-3 gap-4" novalidate>
   {% csrf_token %}
   <div class="lg:col-span-2 space-y-4">
@@ -47,7 +63,8 @@
     {% endif %}
   </div>
 </form>
-{% if event %}
+{% endif %}
+{% if event and not external %}
   <form method="post" action="{% url 'panel:event_delete' event.pk %}" class="mt-6" data-confirm="Apagar este evento? Se tiver inscrições, será apenas despublicado.">
     {% csrf_token %}
     <button class="btn btn-danger btn-sm">{% include "icons/trash.svg" with cls="w-4 h-4" %} Apagar evento</button>
