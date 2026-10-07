@@ -104,4 +104,95 @@
     });
     render();
   }
+
+  // 3. Leitor de QR no navegador (staff: marcar presença à porta do evento) ---------------------
+  var scanner = document.querySelector("[data-scanner]");
+  if (scanner) {
+    var video = scanner.querySelector("video");
+    var msg = scanner.querySelector("[data-scanner-msg]");
+    var stream = null, timer = null, busy = false, detector = null, canvas = null;
+    var CARD_PATH = /^\/conta\/verificar\/[0-9a-f-]{36}\/$/i;
+    var hasCamera = !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
+    if (!hasCamera) document.querySelectorAll("[data-scan-open]").forEach(function (b) { b.hidden = true; });
+
+    var say = function (t) { msg.textContent = t; };
+    var stop = function () {
+      clearTimeout(timer); timer = null; busy = false;
+      if (stream) stream.getTracks().forEach(function (t) { t.stop(); });
+      stream = null; video.srcObject = null; scanner.hidden = true;
+      document.body.classList.remove("scanner-open");
+    };
+    // O QR pode vir de qualquer lado: só abre cartões RWB deste mesmo site.
+    var cardPath = function (text) {
+      try {
+        var u = new URL(text, location.origin);
+        return u.host === location.host && CARD_PATH.test(u.pathname) ? u.pathname : null;
+      } catch (e) { return null; }
+    };
+    var onCode = function (text) {
+      var path = cardPath(text);
+      if (path) { say("Cartão lido ✓"); stop(); location.href = path; return true; }
+      say("Este QR não é um cartão de membro RWB.");
+      return false;
+    };
+    var loadJsQR = function () {
+      if (window.jsQR) return Promise.resolve();
+      return new Promise(function (resolve, reject) {
+        var el = document.createElement("script");
+        el.src = scanner.getAttribute("data-jsqr");
+        el.onload = resolve; el.onerror = reject;
+        document.head.appendChild(el);
+      });
+    };
+    var pickDetector = function () {
+      if (!("BarcodeDetector" in window)) return Promise.resolve(null);
+      return BarcodeDetector.getSupportedFormats().then(function (f) {
+        return f.indexOf("qr_code") > -1 ? new BarcodeDetector({ formats: ["qr_code"] }) : null;
+      }).catch(function () { return null; });
+    };
+    var scanFrame = function () {
+      if (!stream) return;
+      var next = function (wait) { if (stream) timer = setTimeout(scanFrame, wait || 120); };
+      if (video.readyState < 2) return next();
+      var done = function (text) { if (text && onCode(text)) return; next(text ? 1200 : 120); };
+      if (detector) {
+        detector.detect(video).then(function (r) { done(r.length ? r[0].rawValue : null); }).catch(function () { next(); });
+        return;
+      }
+      var w = Math.min(video.videoWidth, 640), h = Math.round(w * video.videoHeight / video.videoWidth);
+      canvas = canvas || document.createElement("canvas");
+      canvas.width = w; canvas.height = h;
+      var ctx = canvas.getContext("2d", { willReadFrequently: true });
+      ctx.drawImage(video, 0, 0, w, h);
+      var code = window.jsQR(ctx.getImageData(0, 0, w, h).data, w, h, { inversionAttempts: "dontInvert" });
+      done(code ? code.data : null);
+    };
+    var start = function () {
+      scanner.hidden = false; document.body.classList.add("scanner-open"); say("A abrir a câmara…");
+      Promise.all([
+        navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: "environment" } }, audio: false }),
+        pickDetector(),
+      ]).then(function (res) {
+        stream = res[0]; detector = res[1];
+        video.srcObject = stream;
+        return (detector ? Promise.resolve() : loadJsQR()).then(function () { return video.play(); });
+      }).then(function () {
+        say("Aponta ao QR do cartão do membro");
+        scanFrame();
+      }).catch(function (err) {
+        var name = err && err.name;
+        say(name === "NotAllowedError" ? "Permite o acesso à câmara nas definições do navegador."
+          : name === "NotFoundError" ? "Não encontrei nenhuma câmara neste dispositivo."
+          : "Não foi possível abrir a câmara.");
+        if (stream) stream.getTracks().forEach(function (t) { t.stop(); });
+        stream = null;
+      });
+    };
+    document.addEventListener("click", function (e) {
+      if (e.target.closest("[data-scan-open]")) start();
+      if (e.target.closest("[data-scanner-close]")) stop();
+    });
+    document.addEventListener("keydown", function (e) { if (e.key === "Escape" && !scanner.hidden) stop(); });
+    document.addEventListener("visibilitychange", function () { if (document.hidden && !scanner.hidden) stop(); });
+  }
 })();

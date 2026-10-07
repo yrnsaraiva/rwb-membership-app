@@ -317,3 +317,20 @@ body:has(.tabbar) .ios-install { bottom: calc(env(safe-area-inset-bottom) + 92px
 .ios-step-n { flex: none; width: 1.5rem; height: 1.5rem; border-radius: 999px; display: grid; place-items: center;
   background: var(--brand); color: var(--brand-ink); font-weight: 700; font-size: .8rem; }
 .ios-share { display: inline-flex; vertical-align: middle; color: var(--accent); }
+
+/* Leitor de QR (staff) */
+.scanner { position: fixed; inset: 0; z-index: 80; background: #000; color: #fff; display: grid; place-items: center; }
+.scanner[hidden] { display: none; }
+.scanner video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.scanner-top { position: absolute; top: 0; left: 0; right: 0; display: flex; align-items: center; justify-content: space-between;
+  padding: calc(env(safe-area-inset-top) + .75rem) 1rem .75rem; background: linear-gradient(#000a, transparent); }
+.scanner-close { padding: .5rem; border-radius: 999px; background: #0008; }
+.scanner-frame { position: relative; width: min(70vw, 300px); aspect-ratio: 1; box-shadow: 0 0 0 100vmax #0006; border-radius: 18px; }
+.scanner-frame i { position: absolute; width: 34px; height: 34px; border: 4px solid var(--brand); }
+.scanner-frame i:nth-child(1) { top: 0; left: 0; border-right: 0; border-bottom: 0; border-top-left-radius: 18px; }
+.scanner-frame i:nth-child(2) { top: 0; right: 0; border-left: 0; border-bottom: 0; border-top-right-radius: 18px; }
+.scanner-frame i:nth-child(3) { bottom: 0; left: 0; border-right: 0; border-top: 0; border-bottom-left-radius: 18px; }
+.scanner-frame i:nth-child(4) { bottom: 0; right: 0; border-left: 0; border-top: 0; border-bottom-right-radius: 18px; }
+.scanner-msg { position: absolute; left: 1rem; right: 1rem; bottom: calc(env(safe-area-inset-bottom) + 2rem); text-align: center;
+  padding: .7rem 1rem; border-radius: 14px; background: #000b; font-size: .95rem; }
+body.scanner-open { overflow: hidden; }

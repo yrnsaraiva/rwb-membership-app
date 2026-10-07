@@ -95,3 +95,17 @@ class AdminTests(TestCase):
         })
         self.assertEqual(resp.status_code, 302, getattr(resp, "context", None) and resp.context["adminform"].form.errors)
         self.assertTrue(User.objects.filter(email="novo@x.mz").exists())
+
+
+class QrScannerTests(TestCase):
+    def test_panel_has_scanner_and_vendored_library(self):
+        from pathlib import Path
+
+        from django.conf import settings
+
+        staff = User.objects.create_user("s@x.mz", "Corrida!2026x", first_name="S", is_staff=True)
+        self.client.force_login(staff)
+        html = self.client.get("/painel/").content.decode()
+        self.assertIn("data-scan-open", html)
+        self.assertIn("data-scanner", html)
+        self.assertTrue((Path(settings.BASE_DIR) / "static/js/vendor/jsQR.min.js").exists())
