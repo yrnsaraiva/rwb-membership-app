@@ -48,6 +48,9 @@ python manage.py makemigrations --check --dry-run   # confirma que as migraçõe
    - `DJANGO_SECRET_KEY` — chave longa e aleatória
    - `SITE_URL` — ex.: `https://app.runwithbroto.co.mz`
    - `DJANGO_ALLOWED_HOSTS` e `DJANGO_CSRF_TRUSTED_ORIGINS` — para o domínio próprio (o domínio `*.railway.app` é adicionado automaticamente)
+   - `REDIS_URL` — **recomendado em produção**: o rate-limit do login e o ranking precisam de cache partilhada entre workers (`check --deploy` avisa se faltar)
+   - `TRUSTED_PROXY_COUNT` — nº de proxies à frente da app (omissão: 1, o Railway); usado para obter o IP real do cliente
+   - Opcionais: `SENTRY_DSN` (monitorização de erros), `API_TOKEN_TTL_DAYS` (validade dos tokens da API, 30), `RWB_MAX_RUNS_PER_DAY` (4) e `RWB_MAX_DAILY_KM` (100), limites anti-batota
    - Loja: `RWB_SHOP_MPESA_NUMBER`, `RWB_SHOP_MPESA_NAME`, `RWB_SHOP_BANK_DETAILS` (aparecem nas instruções de pagamento), `RWB_SHOP_DELIVERY_FEE`, `RWB_PREMIUM_SHOP_DISCOUNT`
    - Email Hostinger: `EMAIL_HOST=smtp.hostinger.com`, `EMAIL_PORT=465`, `EMAIL_HOST_USER`, `EMAIL_HOST_PASSWORD`, `DEFAULT_FROM_EMAIL`
 6. Após o primeiro deploy: `railway run python manage.py createsuperuser`.
@@ -86,7 +89,8 @@ O arranque corre `migrate` automaticamente e o healthcheck usa `/healthz`.
 
 | Método | Endpoint | Descrição |
 |---|---|---|
-| POST | `auth/token/` | `{username: email, password}` → `{token}` (usar `Authorization: Token …`) |
+| POST | `auth/token/` | `{username: email, password}` → `{token, expires_in}` (usar `Authorization: Token …`). Tem rate-limit por conta/IP; o token expira e é revogado ao mudar a palavra-passe |
+| POST | `auth/logout/` | Revoga o token actual |
 | GET/PATCH | `me/` | Perfil do membro |
 | GET | `me/dashboard/` | Estatísticas, semana, próximos eventos |
 | GET | `events/`, `events/?when=past`, `events/{slug}/` | Eventos |

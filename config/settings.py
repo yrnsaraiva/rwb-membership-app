@@ -158,6 +158,10 @@ AUTH_PASSWORD_VALIDATORS = [
     {"NAME": "django.contrib.auth.password_validation.NumericPasswordValidator"},
 ]
 
+# Proxies de confiança à frente da app (Railway = 1). Só o IP acrescentado pelo último proxy é fiável;
+# o resto do X-Forwarded-For vem do cliente e pode ser forjado.
+TRUSTED_PROXY_COUNT = int(env("TRUSTED_PROXY_COUNT", "0" if (DEBUG or TESTING) else "1"))
+
 # Rate-limiting do login (RNF-04)
 LOGIN_RATE_LIMIT_ATTEMPTS = int(env("LOGIN_RATE_LIMIT_ATTEMPTS", "5"))
 LOGIN_RATE_LIMIT_WINDOW = int(env("LOGIN_RATE_LIMIT_WINDOW", "900"))  # segundos
@@ -207,8 +211,8 @@ DEFAULT_FROM_EMAIL = env("DEFAULT_FROM_EMAIL", "RunWithBroto <no-reply@runwithbr
 # Django REST Framework ---------------------------------------------------------
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": [
+        "apps.api.authentication.ExpiringTokenAuthentication",  # primeiro: devolve 401 (e não 403) com token inválido
         "rest_framework.authentication.SessionAuthentication",
-        "rest_framework.authentication.TokenAuthentication",
     ],
     "DEFAULT_PERMISSION_CLASSES": ["rest_framework.permissions.IsAuthenticatedOrReadOnly"],
     "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.PageNumberPagination",
@@ -218,7 +222,9 @@ REST_FRAMEWORK = {
         "rest_framework.throttling.UserRateThrottle",
     ],
     "DEFAULT_THROTTLE_RATES": {"anon": "60/min", "user": "240/min", "login": "10/min"},
+    "NUM_PROXIES": TRUSTED_PROXY_COUNT,
 }
+API_TOKEN_TTL_DAYS = int(env("API_TOKEN_TTL_DAYS", "30"))  # os tokens da API expiram e são renovados no login
 
 # Regras de negócio (pontos) ---------------------------------------------------
 RWB_POINTS_PER_KM = int(env("RWB_POINTS_PER_KM", "10"))
@@ -227,6 +233,8 @@ RWB_STREAK_BONUS_POINTS = int(env("RWB_STREAK_BONUS_POINTS", "50"))
 RWB_EVENT_CHECKIN_POINTS = int(env("RWB_EVENT_CHECKIN_POINTS", "100"))
 RWB_MAX_RUN_KM = int(env("RWB_MAX_RUN_KM", "100"))  # corridas acima disto são rejeitadas
 RWB_MIN_PACE_SEC_PER_KM = int(env("RWB_MIN_PACE_SEC_PER_KM", "150"))  # 2:30/km = limite humano razoável
+RWB_MAX_RUNS_PER_DAY = int(env("RWB_MAX_RUNS_PER_DAY", "4"))  # anti-batota: corridas por dia e membro
+RWB_MAX_DAILY_KM = int(env("RWB_MAX_DAILY_KM", "100"))        # anti-batota: km totais por dia e membro
 
 # Loja -----------------------------------------------------------------------------
 RWB_PREMIUM_SHOP_DISCOUNT = int(env("RWB_PREMIUM_SHOP_DISCOUNT", "10"))   # % de desconto para membros premium
@@ -336,6 +344,13 @@ LOGGING = {
     "handlers": {"console": {"class": "logging.StreamHandler"}},
     "root": {"handlers": ["console"], "level": env("LOG_LEVEL", "INFO")},
 }
+
+# Monitorização de erros (opcional): definir SENTRY_DSN
+if env("SENTRY_DSN") and not TESTING:
+    import sentry_sdk
+
+    sentry_sdk.init(dsn=env("SENTRY_DSN"), release=RELEASE, environment="development" if DEBUG else "production",
+                    traces_sample_rate=float(env("SENTRY_TRACES_RATE", "0")), send_default_pii=False)
 
 if TESTING:
     PASSWORD_HASHERS = ["django.contrib.auth.hashers.MD5PasswordHasher"]

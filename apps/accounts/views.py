@@ -4,7 +4,7 @@ from django.contrib.auth import views as auth_views
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse_lazy
-from django.views.decorators.http import require_http_methods
+from django.views.decorators.http import require_http_methods, require_POST
 
 from apps.core.emails import send_templated_email
 
@@ -72,6 +72,14 @@ def profile_edit(request):
 @login_required
 def card(request):
     return render(request, "accounts/card.html", {"qr_svg": member_qr_svg(request.user)})
+
+
+@login_required
+@require_POST
+def card_regenerate(request):
+    request.user.regenerate_card_token()
+    messages.success(request, "Novo QR gerado. O cartão anterior deixou de funcionar.")
+    return redirect("accounts:card")
 
 
 def verify(request, token):

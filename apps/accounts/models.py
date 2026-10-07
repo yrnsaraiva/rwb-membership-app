@@ -73,6 +73,18 @@ class User(AbstractUser):
             self.member_number = f"RWB-{self.pk:05d}"
             type(self).objects.filter(pk=self.pk).update(member_number=self.member_number)
 
+    def set_password(self, raw_password):
+        super().set_password(raw_password)
+        if self.pk:  # mudar a palavra-passe revoga o token da API (dispositivos perdidos/roubados)
+            from rest_framework.authtoken.models import Token
+
+            Token.objects.filter(user_id=self.pk).delete()
+
+    def regenerate_card_token(self):
+        """Invalida o QR/link antigo do cartão (cartão partilhado ou fotografado)."""
+        self.card_token = uuid.uuid4()
+        self.save(update_fields=["card_token"])
+
     @property
     def display_name(self):
         full = self.get_full_name().strip()

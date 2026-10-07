@@ -6,3 +6,6 @@ class CoreConfig(AppConfig):
     name = "apps.core"
     label = "core"
     verbose_name = "Núcleo"
+
+    def ready(self):
+        from . import checks  # noqa: F401  (regista as verificações de deploy)

@@ -12,6 +12,7 @@ urlpatterns = [
     path("perfil/", views.profile, name="profile"),
     path("perfil/editar/", views.profile_edit, name="profile_edit"),
     path("cartao/", views.card, name="card"),
+    path("cartao/novo-qr/", views.card_regenerate, name="card_regenerate"),
     path("verificar/<uuid:token>/", views.verify, name="verify"),
     path("recuperar/", views.password_reset, name="password_reset"),
     path("recuperar/enviado/", views.password_reset_done, name="password_reset_done"),

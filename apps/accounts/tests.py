@@ -72,3 +72,34 @@ class AccountTests(TestCase):
         self.client.force_login(user)
         resp = self.client.post(reverse("accounts:logout"))
         self.assertEqual(resp.status_code, 302)
+
+
+class RateLimitHardeningTests(TestCase):
+    def setUp(self):
+        cache.clear()
+        self.user = User.objects.create_user("v@exemplo.co.mz", "Corrida!2026x", first_name="Vera")
+
+    @override_settings(LOGIN_RATE_LIMIT_ATTEMPTS=3, TRUSTED_PROXY_COUNT=1)
+    def test_forged_forwarded_for_does_not_reset_limit(self):
+        url = reverse("accounts:login")
+        for i in range(3):  # o atacante troca o 1.º valor do cabeçalho; o proxy acrescenta o IP real no fim
+            self.client.post(url, {"username": "v@exemplo.co.mz", "password": "x"}, HTTP_X_FORWARDED_FOR=f"1.1.1.{i}, 9.9.9.9")
+        resp = self.client.post(url, {"username": "v@exemplo.co.mz", "password": "x"}, HTTP_X_FORWARDED_FOR="2.2.2.2, 9.9.9.9")
+        self.assertEqual(resp.status_code, 429)
+
+    @override_settings(LOGIN_RATE_LIMIT_ATTEMPTS=3, TRUSTED_PROXY_COUNT=1)
+    def test_attacker_cannot_lock_out_owner_from_another_ip(self):
+        url = reverse("accounts:login")
+        for _ in range(3):
+            self.client.post(url, {"username": "v@exemplo.co.mz", "password": "x"}, HTTP_X_FORWARDED_FOR="9.9.9.9")
+        resp = self.client.post(url, {"username": "v@exemplo.co.mz", "password": "Corrida!2026x"}, HTTP_X_FORWARDED_FOR="5.5.5.5")
+        self.assertEqual(resp.status_code, 302)
+
+    def test_regenerate_card_token_invalidates_old_link(self):
+        self.client.force_login(self.user)
+        old = self.user.card_token
+        self.assertEqual(self.client.post(reverse("accounts:card_regenerate")).status_code, 302)
+        self.user.refresh_from_db()
+        self.assertNotEqual(self.user.card_token, old)
+        self.assertEqual(self.client.get(reverse("accounts:verify", args=[old])).status_code, 404)
+        self.assertEqual(self.client.get(reverse("accounts:verify", args=[self.user.card_token])).status_code, 200)

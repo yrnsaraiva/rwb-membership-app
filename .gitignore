@@ -8,3 +8,4 @@ backups/
 node_modules/
 static/css/app.css
 .venv/
+.idea/
