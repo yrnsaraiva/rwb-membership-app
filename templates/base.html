@@ -49,6 +49,7 @@
 </head>
 <body class="min-h-screen">
   <a href="#main" class="skip-link">Saltar para o conteúdo</a>
+  <div class="offline-banner" data-offline-banner role="status" hidden>{% include "icons/wifi-off.svg" with cls="w-4 h-4" %} Sem ligação ou rede fraca — a mostrar dados guardados no telemóvel.</div>
 
   <header class="topbar">
     <div class="{% block container_class %}max-w-3xl{% endblock %} mx-auto px-4 h-14 flex items-center justify-between gap-3">

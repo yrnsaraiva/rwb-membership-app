@@ -44,3 +44,15 @@ class PwaInstallTests(TestCase):
 
     def test_manifest_has_stable_id(self):
         self.assertEqual(self.client.get("/manifest.webmanifest").json()["id"], "/")
+
+
+class ServiceWorkerTests(TestCase):
+    def test_sw_has_push_and_offline_handlers(self):
+        body = self.client.get("/sw.js").content.decode()
+        for needle in ("addEventListener(\"push\"", "notificationclick", "NETWORK_TIMEOUT_MS", "rwb-cache", "js/pwa.js"):
+            self.assertIn(needle, body)
+        self.assertNotIn("{{", body)  # nenhuma variável do template por resolver
+
+    def test_cart_and_forms_are_never_cached_by_the_sw(self):
+        body = self.client.get("/sw.js").content.decode()
+        self.assertIn("carrinho|checkout|encomendas", body)

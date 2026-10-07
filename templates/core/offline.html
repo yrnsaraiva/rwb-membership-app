@@ -6,7 +6,10 @@
     <div class="mx-auto w-16 h-16 rounded-full bg-surface2 border border-line grid place-items-center text-muted mb-5">{% include "icons/wifi-off.svg" with cls="w-7 h-7" %}</div>
     <h1 class="text-3xl font-semibold">Sem rede</h1>
     <p class="text-muted mt-2 max-w-xs mx-auto">Parece que estás sem ligação. Assim que a rede voltar, tenta novamente.</p>
-    <button type="button" onclick="location.reload()" class="btn btn-primary mt-6">Tentar novamente</button>
+    <div class="mt-6 flex flex-col items-center gap-3">
+      <button type="button" onclick="location.reload()" class="btn btn-primary">Tentar novamente</button>
+      <a href="{% url 'accounts:card' %}" class="btn btn-ghost" data-offline-card-link hidden>Abrir o meu cartão de membro</a>
+    </div>
   </div>
 </div>
 {% endblock %}

@@ -195,4 +195,25 @@
     document.addEventListener("keydown", function (e) { if (e.key === "Escape" && !scanner.hidden) stop(); });
     document.addEventListener("visibilitychange", function () { if (document.hidden && !scanner.hidden) stop(); });
   }
+
+  // 4. Offline: aviso e cache por membro -------------------------------------------------------
+  var banner = document.querySelector("[data-offline-banner]");
+  var nav = performance.getEntriesByType ? performance.getEntriesByType("navigation")[0] : null;
+  var servedFromCache = !!(nav && nav.serverTiming && Array.prototype.some.call(nav.serverTiming, function (t) { return t.name === "rwb-cache"; }));
+  var syncBanner = function () { if (banner) banner.hidden = navigator.onLine !== false && !servedFromCache; };
+  window.addEventListener("online", syncBanner);
+  window.addEventListener("offline", syncBanner);
+  syncBanner();
+
+  // Página «Sem rede»: se alguém já usou a app neste dispositivo, oferece o atalho para o cartão guardado
+  var cardLink = document.querySelector("[data-offline-card-link]");
+  if (cardLink && store.get("rwb-cache-user")) cardLink.hidden = false;
+
+  // As páginas guardadas offline são do último membro com sessão neste dispositivo: se mudar o membro
+  // (ou a sessão tiver expirado sem terminar sessão), apaga-as para ninguém ver dados de outra pessoa.
+  if ("caches" in window && userId && store.get("rwb-cache-user") !== userId) {
+    caches.keys().then(function (keys) {
+      return Promise.all(keys.filter(function (k) { return k.indexOf("-pages") > -1; }).map(function (k) { return caches.delete(k); }));
+    }).then(function () { store.set("rwb-cache-user", userId); }).catch(function () {});
+  }
 })();

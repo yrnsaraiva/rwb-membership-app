@@ -334,3 +334,8 @@ body:has(.tabbar) .ios-install { bottom: calc(env(safe-area-inset-bottom) + 92px
 .scanner-msg { position: absolute; left: 1rem; right: 1rem; bottom: calc(env(safe-area-inset-bottom) + 2rem); text-align: center;
   padding: .7rem 1rem; border-radius: 14px; background: #000b; font-size: .95rem; }
 body.scanner-open { overflow: hidden; }
+
+/* Aviso de modo offline */
+.offline-banner { display: flex; align-items: center; justify-content: center; gap: .5rem; padding: .45rem 1rem; font-size: .8rem;
+  background: var(--surface-2); color: var(--muted); border-bottom: 1px solid var(--line); }
+.offline-banner[hidden] { display: none; }

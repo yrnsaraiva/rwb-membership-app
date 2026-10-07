@@ -39,21 +39,49 @@ self.addEventListener("fetch", (event) => {
   if (url.origin !== location.origin) return;
   if (url.pathname.startsWith("/api/") || url.pathname.startsWith("/painel/") || url.pathname.startsWith("/django-admin/")) return;
 
-  // Páginas: network-first, com cópia em cache para leitura offline (ex.: cartão de membro)
+  // Páginas: network-first com limite de espera. Em redes móveis fracas, se a rede demora mais de NETWORK_TIMEOUT_MS
+  // e há cópia guardada, mostra-a; sem rede, mostra a cópia ou a página «Sem ligação».
   if (req.mode === "navigate") {
-    event.respondWith(
-      fetch(req)
-        .then((res) => {
-          if (res.ok && ["/conta/cartao/", "/atividade/", "/eventos/"].includes(url.pathname)) {
-            const copy = res.clone();
-            caches.open(PAGE_CACHE).then((c) => c.put(req, copy));
-          }
-          return res;
-        })
-        .catch(() => caches.match(req).then((hit) => hit || caches.match(OFFLINE_URL)))
-    );
+    event.respondWith(networkFirst(req, url));
   }
 });
+
+const NETWORK_TIMEOUT_MS = 4000;
+const MAX_CACHED_PAGES = 40;
+// Páginas de leitura úteis offline (o cartão de membro é a principal). Formulários, login e painel ficam de fora.
+const CACHEABLE = [/^\/atividade\/$/, /^\/atividade\/(corridas|pontos)\/$/, /^\/eventos\/$/, /^\/eventos\/[\w-]+\/$/,
+  /^\/ranking\/$/, /^\/conta\/(cartao|perfil)\/$/, /^\/loja\/$/, /^\/loja\/[\w-]+\/$/, /^\/premium\/$/];
+const NOT_CACHEABLE = [/^\/loja\/(carrinho|checkout|encomendas)\//, /^\/eventos\/(novo|inscricoes)\//];
+const isCacheable = (url) => CACHEABLE.some((r) => r.test(url.pathname)) && !NOT_CACHEABLE.some((r) => r.test(url.pathname));
+
+async function remember(req, res) {
+  const cache = await caches.open(PAGE_CACHE);
+  await cache.put(req, res);
+  const keys = await cache.keys();
+  for (const k of keys.slice(0, Math.max(0, keys.length - MAX_CACHED_PAGES))) await cache.delete(k);  // descarta as mais antigas
+}
+
+// Marca as respostas vindas da cache (Server-Timing) para a página poder avisar o membro
+function fromCache(res) {
+  const headers = new Headers(res.headers);
+  headers.append("Server-Timing", "rwb-cache");
+  return new Response(res.body, { status: res.status, statusText: res.statusText, headers });
+}
+
+async function networkFirst(req, url) {
+  const cached = await caches.match(req, { cacheName: PAGE_CACHE });
+  const network = fetch(req).then((res) => {
+    // Só guarda respostas normais (não redirecções, ex.: para o login quando a sessão expirou)
+    if (res.ok && !res.redirected && isCacheable(url)) remember(req, res.clone());
+    return res;
+  });
+  try {
+    if (!cached) return await network;
+    return await Promise.race([network, new Promise((_, reject) => setTimeout(() => reject(new Error("timeout")), NETWORK_TIMEOUT_MS))]);
+  } catch (e) {
+    return cached ? fromCache(cached) : (await caches.match(OFFLINE_URL)) || Response.error();
+  }
+}
 
 // --- Notificações push --------------------------------------------------------------------
 self.addEventListener("push", (event) => {
