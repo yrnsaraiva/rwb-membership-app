@@ -9,7 +9,7 @@ from django.test import TestCase, override_settings
 from django.utils import timezone
 
 from apps.accounts.models import User
-from apps.events import etk, services
+from apps.events import etk
 from apps.events.models import Event
 
 ETK = {"ETK_BASE": "https://etk.example", "ETK_API_KEY": "etk_live_x", "ETK_ENABLED": True,
@@ -52,7 +52,8 @@ class SyncTests(TestCase):
         self.assertEqual(e.summary, "Primeira linha.")
         self.assertEqual(e.cover_url, "https://img.example/a.jpg")
         self.assertEqual(e.external_url, "https://site.example/eventos/EVNT1")
-        self.assertEqual(e.capacity, 50)  # evento grátis: 10 vendidos + 40 disponíveis
+        self.assertIsNone(e.capacity)  # a lotação é da ETK (tickets_available), não um limite local
+        self.assertEqual(e.tickets_available, 40)
         self.assertFalse(e.has_paid_ticket)
         with fake_get(envelope(remote_event(1))):
             result = etk.sync_events()
@@ -134,26 +135,6 @@ class PaidEventTests(TestCase):
             etk.sync_events()
         self.paid, self.free = Event.objects.get(external_id="EVNT1"), Event.objects.get(external_id="EVNT2")
         self.user = User.objects.create_user("a@x.mz", "Corrida!2026x", first_name="Ana")
-
-    def test_paid_event_cannot_be_registered_here(self):
-        with self.assertRaises(services.RegistrationError):
-            services.register(self.user, self.paid)
-        self.assertTrue(services.register(self.user, self.free))
-
-    def test_paid_event_page_links_to_ticket_site(self):
-        html = self.client.get(self.paid.get_absolute_url()).content.decode()
-        self.assertIn("Comprar bilhete", html)
-        self.assertIn("https://site.example/eventos/EVNT1", html)
-        self.assertIn("300", html)
-        self.assertNotIn("Confirmar inscrição", html)
-        self.client.force_login(self.user)
-        self.assertIn("Confirmar inscrição", self.client.get(self.free.get_absolute_url()).content.decode())
-
-    def test_register_endpoint_rejects_paid_event(self):
-        self.client.force_login(self.user)
-        resp = self.client.post(f"/eventos/{self.paid.slug}/inscrever/")
-        self.assertFalse(self.paid.registrations.exists())
-        self.assertIn(resp.status_code, (302, 400))
 
     def test_api_exposes_ticket_info(self):
         data = self.client.get(f"/api/v1/events/{self.paid.slug}/").json()

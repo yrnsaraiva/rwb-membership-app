@@ -64,6 +64,10 @@ class Event(models.Model):
     external_url = models.URLField("página de bilhetes", blank=True, editable=False)
     image_url = models.URLField("imagem (URL)", blank=True, editable=False)
     ticket_prices = models.JSONField("bilhetes", default=list, blank=True, editable=False)
+    registration_mode = models.CharField("modo de inscrição", max_length=20, blank=True, editable=False,
+                                         help_text="ETK: direct ou preregistration (pré-inscrição + confirmação).")
+    confirmation_opens_at = models.DateTimeField("confirmação abre", null=True, blank=True, editable=False)
+    confirmation_deadline = models.DateTimeField("prazo de confirmação", null=True, blank=True, editable=False)
     synced_at = models.DateTimeField("sincronizado em", null=True, blank=True, editable=False)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -107,6 +111,22 @@ class Event(models.Model):
     def has_paid_ticket(self):
         """Algum lote de bilhetes tem preço > 0: a inscrição faz-se (e paga-se) na ETK, não aqui."""
         return any(float(p.get("amount") or 0) > 0 for p in self.ticket_prices)
+
+    @property
+    def is_preregistration(self):
+        return self.registration_mode == "preregistration"
+
+    @property
+    def confirmation_is_open(self):
+        if not self.is_preregistration or not self.confirmation_opens_at:
+            return False
+        now = timezone.now()
+        return now >= self.confirmation_opens_at and not (self.confirmation_deadline and now >= self.confirmation_deadline)
+
+    @property
+    def sellable_prices(self):
+        """Lotes que se podem comprar agora (activos e com bilhetes)."""
+        return [p for p in self.ticket_prices if p.get("status") == "active" and int(p.get("available") or 0) > 0]
 
     @property
     def min_ticket_price(self):
@@ -164,6 +184,7 @@ class Registration(models.Model):
     class Status(models.TextChoices):
         CONFIRMED = "confirmed", "Confirmada"
         CANCELLED = "cancelled", "Cancelada"
+        PENDING = "pending", "A aguardar pagamento"
 
     event = models.ForeignKey(Event, on_delete=models.CASCADE, related_name="registrations", verbose_name="evento")
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="registrations", verbose_name="membro")
@@ -173,6 +194,19 @@ class Registration(models.Model):
     created_at = models.DateTimeField("inscrito em", auto_now_add=True)
     cancelled_at = models.DateTimeField("cancelado em", null=True, blank=True)
     reminder_sent_at = models.DateTimeField("lembrete enviado em", null=True, blank=True, editable=False)
+
+    # Espelho do bilhete na ETK (a ETK é a fonte da verdade: inscrição, pagamento e entrada). Ver apps/events/tickets.py
+    external_ticket_id = models.CharField("bilhete ETK", max_length=40, unique=True, null=True, blank=True, editable=False)
+    ticket_payment = models.CharField("pagamento (ETK)", max_length=20, blank=True, editable=False)
+    ticket_qr = models.CharField(max_length=60, blank=True, editable=False)
+    ticket_price_name = models.CharField(max_length=100, blank=True, editable=False)
+    ticket_amount = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True, editable=False)
+    ticket_expires_at = models.DateTimeField(null=True, blank=True, editable=False)
+    ticket_checkout_url = models.URLField(blank=True, editable=False)
+    ticket_instructions = models.CharField(max_length=255, blank=True, editable=False)
+    ticket_entered = models.BooleanField("entrou (ETK)", default=False, editable=False)
+    via_app = models.BooleanField("comprado na app", default=False, editable=False)
+    ticket_synced_at = models.DateTimeField(null=True, blank=True, editable=False)
 
     class Meta:
         verbose_name = "inscrição"
@@ -186,3 +220,11 @@ class Registration(models.Model):
     @property
     def is_active(self):
         return self.status == self.Status.CONFIRMED
+
+    @property
+    def has_ticket(self):
+        return bool(self.external_ticket_id)
+
+    @property
+    def is_pending_payment(self):
+        return self.status == self.Status.PENDING

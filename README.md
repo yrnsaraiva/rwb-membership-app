@@ -59,7 +59,7 @@ python manage.py makemigrations --check --dry-run   # confirma que as migraçõe
 7. Tarefas agendadas (Railway Cron, serviço separado com o mesmo código):
    - diário: `python manage.py expire_subscriptions`
    - diário: `python manage.py cancel_stale_orders` (cancela encomendas por pagar há mais de `RWB_SHOP_HOLD_DAYS` dias e devolve o stock)
-   - de 10 em 10 minutos: `python manage.py sync_etk_events` (traz os eventos da ETK)
+   - de 10 em 10 minutos: `python manage.py sync_etk_events` (eventos) e de 5 em 5: `python manage.py sync_etk_tickets` (bilhetes → inscrições)
    - de hora a hora: `python manage.py send_event_reminders` (lembrete push aos inscritos de eventos nas próximas 24 h)
    - semanal (RNF-07): `python manage.py backup_db --keep 8` (grava em `BACKUP_DIR`; montar volume ou sincronizar para armazenamento externo). O Postgres do Railway também tem backups próprios — activar.
 
@@ -149,21 +149,24 @@ Logótipos em `static/img/brand/` (versão amarela para fundo escuro, preta para
 
 ---
 
-## Eventos vindos da ETK
+## Eventos e bilhetes: tudo vem da ETK
 
-Com `ETK_BASE` + `ETK_API_KEY` definidos, **os eventos são criados na API de bilhetes (ETK)** e copiados para aqui por `python manage.py sync_etk_events` (ou pelo botão «Sincronizar com a ETK» em Painel → Eventos).
-- Vêm da ETK: nome, descrição, tipo, data, local, imagem e bilhetes (preços e disponibilidade). Eventos que a ETK deixa de publicar ou cancela ficam despublicados aqui (as inscrições mantêm-se).
-- Ficam no RWB e **nunca são sobrescritos**: pontos de presença, só-premium, ponto de encontro, mapa e distâncias (editáveis no painel).
-- **Eventos com bilhete pago** (algum lote com preço > 0) não aceitam inscrição aqui: a página mostra os preços e o botão «Comprar bilhete» para `ETK_PUBLIC_EVENT_URL`. **Eventos grátis** continuam a ter inscrição, presença por QR e pontos no RWB, com a lotação definida na ETK.
-- A primeira sincronização não envia notificações push; os eventos novos seguintes enviam.
-- Se a ETK estiver em baixo, a app continua a funcionar com os eventos já copiados.
+Com `ETK_BASE` + `ETK_API_KEY` definidos, **a ETK é a fonte dos eventos, das inscrições, dos pagamentos e das entradas**. O RWB mostra-os, deixa o membro inscrever-se e dá os pontos; não guarda regras próprias de vagas ou preços para esses eventos.
 
-**Entrada com bilhete da ETK (presença + pontos).** O staff usa o mesmo botão «Ler QR» do painel:
-- **QR do bilhete** (`TCKT…|assinatura`): o RWB marca a entrada na ETK (`tickets/check-in`) e, se o titular for membro, regista a presença e os pontos. Continua a ler o bilhete seguinte (verde = entrou, amarelo = já usado, vermelho = recusado).
-- **QR do cartão de membro** de quem tem bilhete: a ficha mostra os bilhetes pagos dele na ETK com o botão «Dar entrada» (o membro não precisa de mostrar o bilhete).
-- O titular reconhece-se pelo **telemóvel** do bilhete (258…) e, se não bater, pelo **email**; só conta se a correspondência for única. Os telemóveis dos membros são normalizados (`+258 84 …`, `84 …` → `25884…`).
-- Cada entrada paga os pontos uma só vez, mesmo se o bilhete for lido duas vezes ou entrar por outra porta. Quem não é membro entra na mesma (aparece «não é membro RWB»).
-- API para outros leitores: `POST /api/v1/staff/tickets/check-in/` com `{"qrValue": "TCKT…|…"}`.
+**Eventos** — `python manage.py sync_etk_events` (ou o botão «Sincronizar com a ETK» no painel). Vêm da ETK: nome, descrição, tipo, data, local, imagem, bilhetes (preço e disponibilidade) e modo de inscrição. Eventos que a ETK despublica ou cancela ficam despublicados aqui. Ficam no RWB e nunca são sobrescritos: pontos de presença, só-premium, ponto de encontro, mapa e distâncias. O painel já não cria eventos.
+
+**Inscrição = bilhete da ETK**
+- O membro escolhe o bilhete (e, se for pago, **M-Pesa / e-Mola / mKesh**) na página do evento; o RWB cria o bilhete na ETK com o telemóvel do perfil (obrigatório, formato `258…`) e a ETK cobra no telemóvel.
+- Grátis ou M-Pesa: bilhete e QR na hora. e-Mola/mKesh: «a aguardar pagamento», a página sonda a ETK e abre o bilhete quando o pagamento entra. Cartão: botão para o checkout. Pré-inscrição: botão «Confirmar presença» quando a ETK abre a confirmação.
+- Um bilhete não se cancela na app (a ETK não tem esse pedido): a página manda falar com a organização.
+- Cada inscrição local é o **espelho** de um bilhete (`Registration.external_ticket_id`): `python manage.py sync_etk_tickets` (5 em 5 min) traz pagamentos concluídos, compras feitas no **site**, reembolsos e entradas dadas à porta — inclusive por outras apps da ETK, que também pagam os pontos. O titular reconhece-se pelo telemóvel do bilhete (ou email), só se for único.
+- Email de confirmação e push («Bilhete confirmado») só quando a inscrição foi feita na app.
+
+**Entrada à porta** — o botão «Ler QR» do painel lê o **QR do bilhete** (`TCKT…|assinatura`: valida na ETK, dá a entrada e a presença/pontos) ou o **cartão de membro** (a ficha traz primeiro os bilhetes dele da ETK e mostra «Dar entrada»). Cada entrada paga pontos uma só vez; quem não é membro entra na mesma. A entrada não se desfaz (está na ETK).
+
+**Se a ETK estiver em baixo** a app continua a mostrar os eventos e bilhetes já espelhados; inscrever-se e dar entrada ficam indisponíveis com uma mensagem clara.
+
+API: `POST /api/v1/events/{slug}/register/` (`price`, `payment_method`), `GET …/ticket/` (estado/QR), `POST …/confirm/`, `POST /api/v1/staff/tickets/check-in/`.
 
 ## PWA no telemóvel
 

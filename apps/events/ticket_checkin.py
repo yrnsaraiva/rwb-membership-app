@@ -7,13 +7,11 @@ import re
 from dataclasses import dataclass
 
 from django.contrib.auth import get_user_model
-from django.db import transaction
 
 from apps.accounts.phone import normalize_phone
 
 from . import etk
-from . import services as event_services
-from .models import Event, Registration
+from .models import Registration
 
 QR_PATTERN = re.compile(r"^TCKT\d+\|[0-9a-f]{16}$")
 MESSAGES = {
@@ -61,18 +59,6 @@ def find_member(phone="", email=""):
     return None
 
 
-@transaction.atomic
-def _record_presence(member, event):
-    """Inscreve (se faltar) e marca a presença; o check_in é idempotente, por isso nunca paga pontos duas vezes."""
-    registration, created = Registration.objects.select_for_update().get_or_create(event=event, user=member)
-    if not registration.is_active:
-        registration.status = Registration.Status.CONFIRMED
-        registration.cancelled_at = None
-        registration.save(update_fields=["status", "cancelled_at"])
-    awarded = event_services.check_in(registration)
-    return (event.effective_checkin_points if awarded else 0), True
-
-
 def check_in_by_qr(qr_value: str) -> Outcome:
     """Bilhete lido à porta (QR `TCKT…|assinatura`)."""
     qr_value = (qr_value or "").strip()
@@ -83,7 +69,10 @@ def check_in_by_qr(qr_value: str) -> Outcome:
     except etk.EtkError:
         return Outcome("error", MESSAGES["error"])
     ticket = res["ticket"] or {}
-    outcome = Outcome(res["result"], MESSAGES.get(res["result"], res["message"] or "Resultado desconhecido"),
+    message = MESSAGES.get(res["result"], res["message"] or "Resultado desconhecido")
+    if res["result"] == "not_paid" and ticket.get("payment") == "preregistered":
+        message = "Pré-inscrição sem confirmação de presença"
+    outcome = Outcome(res["result"], message,
                       holder=ticket.get("fullName") or "", event_title=(ticket.get("event") or {}).get("name", ""))
     if outcome.admitted:
         _attach_member(outcome, ticket)
@@ -91,25 +80,15 @@ def check_in_by_qr(qr_value: str) -> Outcome:
 
 
 def _attach_member(outcome: Outcome, ticket: dict):
+    """Liga a entrada ao membro (se o titular o for): espelha o bilhete e, como já tem entrada, paga a presença uma só vez."""
+    from . import tickets
+
     outcome.member = find_member(ticket.get("phone", ""), ticket.get("email", ""))
-    event = Event.objects.filter(external_id=ticket.get("eventId")).first()
-    if outcome.member and event:
-        outcome.points, outcome.registered = _record_presence(outcome.member, event)
-
-
-def tickets_for_member(member, timeout=4):
-    """Bilhetes pagos do membro (por telemóvel) para eventos futuros/de hoje ainda sem entrada. [] se não tiver número."""
-    if not member.phone_e164:
-        return []
-    return [t for t in etk.fetch_paid_tickets(phone=member.phone_e164, timeout=timeout) if not t.get("entered")]
-
-
-def check_in_member_ticket(member, ticket_id: str) -> Outcome:
-    """Staff leu o cartão do membro (não o bilhete): usa o QR do bilhete que a ETK tem para esse telemóvel."""
-    try:
-        tickets = [t for t in etk.fetch_paid_tickets(phone=member.phone_e164) if t.get("id") == ticket_id]
-    except etk.EtkError:
-        return Outcome("error", MESSAGES["error"])
-    if not member.phone_e164 or not tickets:
-        return Outcome("not_found", MESSAGES["not_found"])
-    return check_in_by_qr(tickets[0]["qrValue"])
+    if outcome.member is None or not ticket.get("id"):
+        return
+    already = Registration.objects.filter(external_ticket_id=ticket["id"], checked_in_at__isnull=False).exists()
+    reg = tickets.upsert_registration({**ticket, "entered": True}, outcome.member)
+    if reg is not None:
+        outcome.registered = True
+        if reg.checked_in_at and not already:
+            outcome.points = reg.event.effective_checkin_points

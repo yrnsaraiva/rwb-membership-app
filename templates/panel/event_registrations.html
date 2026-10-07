@@ -21,23 +21,25 @@
 <form method="get" class="mb-3 max-w-sm"><input class="input !min-h-[40px]" type="search" name="q" value="{{ q }}" placeholder="Procurar inscrito"></form>
 <div class="card table-wrap">
   <table class="table">
-    <thead><tr><th>Membro</th><th>Nº sócio</th><th>Distância</th><th>Estado</th><th class="text-right">Presença</th></tr></thead>
+    <thead><tr><th>Membro</th><th>Nº sócio</th><th>{% if event.is_external %}Bilhete{% else %}Distância{% endif %}</th><th>Estado</th><th class="text-right">Presença</th></tr></thead>
     <tbody>
       {% for r in registrations %}
         <tr class="{% if not r.is_active %}opacity-50{% endif %}">
           <td><a href="{% url 'panel:member_detail' r.user_id %}" class="font-medium">{{ r.user.display_name }}</a><p class="text-xs text-muted">{{ r.user.phone|default:r.user.email }}</p></td>
           <td class="tabular">{{ r.user.member_number }}</td>
-          <td>{{ r.distance|default:"—" }}</td>
-          <td>{% if r.is_active %}<span class="chip">Confirmada</span>{% else %}<span class="chip chip-danger">Cancelada</span>{% endif %}</td>
+          <td>{% if r.has_ticket %}{{ r.ticket_price_name|default:"—" }}{% if r.ticket_amount %} · {{ r.ticket_amount|floatformat:"0g" }} MZN{% endif %}{% else %}{{ r.distance|default:"—" }}{% endif %}</td>
+          <td>{% if r.is_active %}<span class="chip">{% if r.ticket_payment == "preregistered" %}Pré-inscrito{% else %}Confirmada{% endif %}</span>{% elif r.is_pending_payment %}<span class="chip chip-warn">A pagar</span>{% else %}<span class="chip chip-danger">Cancelada</span>{% endif %}</td>
           <td class="text-right">
             {% if r.is_active %}
               <form method="post" action="{% url 'panel:registration_checkin' r.pk %}">
                 {% csrf_token %}
                 <input type="hidden" name="next" value="{{ request.get_full_path }}">
-                {% if r.checked_in_at %}
+                {% if r.has_ticket and r.ticket_entered %}
+                  <span class="chip chip-brand">{% include "icons/check.svg" with cls="w-3 h-3" %} Entrou{% if r.checked_in_at %} {{ r.checked_in_at|date:"H:i" }}{% endif %}</span>
+                {% elif r.checked_in_at %}
                   <button class="btn btn-ghost btn-sm" title="Clique para desfazer">{% include "icons/check.svg" with cls="w-4 h-4 text-accent" %} {{ r.checked_in_at|date:"H:i" }}</button>
                 {% else %}
-                  <button class="btn btn-primary btn-sm">Marcar</button>
+                  <button class="btn btn-primary btn-sm">{% if r.has_ticket %}Dar entrada{% else %}Marcar{% endif %}</button>
                 {% endif %}
               </form>
             {% endif %}

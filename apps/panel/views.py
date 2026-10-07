@@ -174,14 +174,15 @@ def event_form(request, pk=None):
 @staff_required
 @require_POST
 def events_sync(request):
-    from apps.events import etk
+    from apps.events import etk, tickets
 
     try:
         result = etk.sync_events()
+        tix = tickets.sync_tickets()
     except etk.EtkError as exc:
         messages.error(request, f"Não foi possível sincronizar com a ETK: {exc}")
     else:
-        messages.success(request, f"ETK sincronizada: {result}.")
+        messages.success(request, f"ETK sincronizada: eventos ({result}); {tix['matched']} bilhete(s) ligado(s) a membros.")
     return redirect("panel:events")
 
 
@@ -228,7 +229,15 @@ def event_registrations(request, pk):
 @require_POST
 def registration_checkin(request, pk):
     reg = get_object_or_404(Registration.objects.select_related("event", "user"), pk=pk)
-    if reg.checked_in_at:
+    if reg.has_ticket:
+        # Bilhete da ETK: a entrada dá-se na ETK (e não se desfaz); os pontos vêm do espelho
+        if reg.ticket_entered or reg.checked_in_at:
+            messages.info(request, f"{reg.user.display_name} já tem a entrada registada.")
+        else:
+            outcome = ticket_checkin.check_in_by_qr(reg.ticket_qr)
+            text = f"{outcome.message} — {reg.user.display_name}" + (f" (+{outcome.points} pts)" if outcome.points else "")
+            (messages.success if outcome.admitted else messages.error)(request, text)
+    elif reg.checked_in_at:
         event_services.undo_check_in(reg)
         messages.info(request, f"Presença de {reg.user.display_name} removida.")
     elif event_services.check_in(reg):
@@ -353,14 +362,3 @@ def ticket_scan(request):
         return JsonResponse({"result": "error", "message": "Sem permissão."}, status=403)
     outcome = ticket_checkin.check_in_by_qr(request.POST.get("qrValue", ""))
     return JsonResponse(outcome.as_dict())
-
-
-@staff_required
-@require_POST
-def ticket_member_checkin(request, pk):
-    """Staff leu o cartão do membro e escolheu o bilhete dele: dá a entrada pelo bilhete que a ETK tem."""
-    member = get_object_or_404(User, pk=pk)
-    outcome = ticket_checkin.check_in_member_ticket(member, request.POST.get("ticket_id", ""))
-    text = f"{outcome.message} — {member.display_name}" + (f" (+{outcome.points} pts)" if outcome.points else "")
-    (messages.success if outcome.admitted else messages.error)(request, text)
-    return redirect(member.get_verify_url())

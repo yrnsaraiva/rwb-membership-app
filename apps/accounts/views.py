@@ -93,20 +93,19 @@ def verify(request, token):
 
         from django.utils import timezone
 
+        from apps.events import etk, tickets
         from apps.events.models import Registration
 
+        if settings.ETK_ENABLED:
+            try:  # bilhetes comprados no site ainda não espelhados: traz-os agora
+                tickets.refresh_member(member)
+            except etk.EtkError:
+                context["etk_error"] = True
         now = timezone.now()
         context["today_registrations"] = Registration.objects.filter(
             user=member, status=Registration.Status.CONFIRMED,
             event__starts_at__gte=now - timedelta(hours=12), event__starts_at__lte=now + timedelta(hours=12),
         ).select_related("event")
-        if settings.ETK_ENABLED:
-            from apps.events import etk, ticket_checkin
-
-            try:
-                context["etk_tickets"] = ticket_checkin.tickets_for_member(member)
-            except etk.EtkError:
-                context["etk_error"] = True
     return render(request, "accounts/verify.html", context)
 
 

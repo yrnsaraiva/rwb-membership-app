@@ -22,7 +22,9 @@ def ticket(phone="258841234567", email="", entered=False, event_id="EVNT1", paym
 
 
 def etk_reply(result="ok", message="Entrada autorizada.", t=None):
-    return {"result": result, "message": message, "ticket": t or ticket()}
+    # a ETK devolve o bilhete já com `entered=true` quando a entrada é dada (ou já tinha sido)
+    default = ticket(entered=result in ("ok", "already_entered"))
+    return {"result": result, "message": message, "ticket": t or default}
 
 
 class PhoneTests(TestCase):
@@ -93,7 +95,7 @@ class TicketCheckInTests(TestCase):
         out, _ = self.checkin(etk_reply(t=ticket(event_id="EVNT-OUTRO")))
         self.assertEqual((out.result, out.member, out.points), ("ok", self.ana, 0))
 
-    def test_cancelled_registration_is_reactivated(self):
+    def test_cancelled_local_registration_becomes_the_ticket_mirror(self):
         Registration.objects.create(event=self.event, user=self.ana, status=Registration.Status.CANCELLED)
         out, _ = self.checkin(etk_reply())
         self.assertEqual(out.points, 100)
@@ -107,16 +109,6 @@ class TicketCheckInTests(TestCase):
         with mock.patch("apps.events.ticket_checkin.etk.check_in_ticket", side_effect=etk.EtkError("down")):
             out = ticket_checkin.check_in_by_qr(QR)
         self.assertEqual((out.result, out.admitted), ("error", False))
-
-    def test_member_card_flow_uses_the_ticket_qr_from_etk(self):
-        with mock.patch("apps.events.ticket_checkin.etk.fetch_paid_tickets", return_value=[ticket()]) as f, \
-                mock.patch("apps.events.ticket_checkin.etk.check_in_ticket", return_value=etk_reply()) as c:
-            out = ticket_checkin.check_in_member_ticket(self.ana, "TCKT1")
-        f.assert_called_once_with(phone="258841234567")
-        c.assert_called_once_with(QR)
-        self.assertEqual(out.points, 100)
-        with mock.patch("apps.events.ticket_checkin.etk.fetch_paid_tickets", return_value=[ticket()]):
-            self.assertEqual(ticket_checkin.check_in_member_ticket(self.ana, "TCKT-DE-OUTRO").result, "not_found")
 
 
 @override_settings(**ETK)
@@ -150,25 +142,39 @@ class TicketEndpointsTests(TestCase):
             resp = api.post("/api/v1/staff/tickets/check-in/", {"qrValue": QR}, format="json")
         self.assertEqual((resp.status_code, resp.data["result"]), (200, "ok"))
 
-    def test_member_card_page_lists_member_tickets_for_staff(self):
+    def test_member_card_page_mirrors_website_tickets_and_shows_entry_button(self):
         self.client.force_login(self.staff)
-        with mock.patch("apps.events.ticket_checkin.etk.fetch_paid_tickets", return_value=[ticket()]):
+        with mock.patch("apps.events.tickets.etk.fetch_tickets", return_value=[ticket()]) as fetch:
             html = self.client.get(self.ana.get_verify_url()).content.decode()
+        fetch.assert_called_once()
+        self.assertEqual(fetch.call_args.kwargs["phone"], "258841234567")
+        reg = Registration.objects.get(user=self.ana)
+        self.assertEqual((reg.external_ticket_id, reg.ticket_payment, reg.status), ("TCKT1", "paid", "confirmed"))
         self.assertIn("Corrida Paga", html)
         self.assertIn("Dar entrada", html)
-        with mock.patch("apps.events.ticket_checkin.etk.fetch_paid_tickets", side_effect=etk.EtkError("down")):
-            self.assertIn("Não foi possível consultar os bilhetes", self.client.get(self.ana.get_verify_url()).content.decode())
 
-    def test_member_card_page_never_calls_etk_for_non_staff(self):
-        self.client.force_login(self.ana)
-        with mock.patch("apps.events.ticket_checkin.etk.fetch_paid_tickets") as f:
-            self.client.get(self.ana.get_verify_url())
-        f.assert_not_called()
-
-    def test_member_ticket_checkin_button(self):
+    def test_member_card_page_survives_etk_down_and_never_calls_it_for_non_staff(self):
         self.client.force_login(self.staff)
-        with mock.patch("apps.events.ticket_checkin.etk.fetch_paid_tickets", return_value=[ticket()]), \
-                mock.patch("apps.events.ticket_checkin.etk.check_in_ticket", return_value=etk_reply()):
-            resp = self.client.post(f"/painel/membros/{self.ana.pk}/bilhete-entrada/", {"ticket_id": "TCKT1"}, follow=True)
+        with mock.patch("apps.events.tickets.etk.fetch_tickets", side_effect=etk.EtkError("down")):
+            self.assertIn("Não foi possível consultar os bilhetes", self.client.get(self.ana.get_verify_url()).content.decode())
+        self.client.force_login(self.ana)
+        with mock.patch("apps.events.tickets.etk.fetch_tickets") as fetch:
+            self.client.get(self.ana.get_verify_url())
+        fetch.assert_not_called()
+
+    def test_presence_button_for_ticket_registration_enters_through_etk(self):
+        from apps.events import tickets
+
+        reg = tickets.upsert_registration(ticket(), self.ana)
+        self.client.force_login(self.staff)
+        with mock.patch("apps.events.ticket_checkin.etk.check_in_ticket", return_value=etk_reply()) as c:
+            resp = self.client.post(f"/painel/inscricoes/{reg.pk}/presenca/", follow=True)
+        c.assert_called_once_with(QR)
         self.assertContains(resp, "Entrada autorizada")
+        self.assertEqual(PointTransaction.objects.filter(user=self.ana, reason="event_checkin").count(), 1)
+        # segunda vez: a entrada não se desfaz (já está na ETK)
+        with mock.patch("apps.events.ticket_checkin.etk.check_in_ticket") as c:
+            resp = self.client.post(f"/painel/inscricoes/{reg.pk}/presenca/", follow=True)
+        c.assert_not_called()
+        self.assertContains(resp, "já tem a entrada")
         self.assertEqual(PointTransaction.objects.filter(user=self.ana, reason="event_checkin").count(), 1)

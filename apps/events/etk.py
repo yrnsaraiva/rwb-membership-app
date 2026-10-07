@@ -30,7 +30,12 @@ KIND_BY_CATEGORY = {
 
 
 class EtkError(Exception):
-    pass
+    """A ETK está indisponível, mal configurada ou respondeu fora do contrato (problema nosso/dela, não do pedido)."""
+
+
+class EtkRejected(EtkError):
+    """A ETK recusou o pedido por regra de negócio (esgotado, número inválido, pagamento recusado…). `str(exc)` é
+    uma mensagem em português própria para mostrar ao utilizador."""
 
 
 @dataclass
@@ -46,7 +51,7 @@ class SyncResult:
 
 
 def _request(method, path, *, params=None, json=None, timeout=None):
-    """Pedido autenticado à ETK. Devolve o corpo JSON (envelope) ou levanta EtkError."""
+    """Pedido autenticado à ETK. Devolve o corpo JSON (envelope) ou levanta EtkError / EtkRejected."""
     if not settings.ETK_ENABLED:
         raise EtkError("ETK não configurada (defina ETK_BASE e ETK_API_KEY).")
     try:
@@ -56,12 +61,14 @@ def _request(method, path, *, params=None, json=None, timeout=None):
         raise EtkError(f"Falha de rede ao contactar a ETK: {exc}") from exc
     if resp.status_code in (401, 403):
         raise EtkError("A ETK recusou a chave de API (ETK_API_KEY inválida ou revogada).")
-    if resp.status_code != 200:
-        raise EtkError(f"A ETK respondeu {resp.status_code}.")
     try:
         body = resp.json()
     except ValueError as exc:
-        raise EtkError("Resposta da ETK não é JSON.") from exc
+        raise EtkError(f"Resposta da ETK ({resp.status_code}) não é JSON.") from exc
+    if resp.status_code in (400, 402, 404, 409) and isinstance(body, dict):
+        raise EtkRejected(str(body.get("message") or "Pedido recusado pela ETK."))
+    if resp.status_code not in (200, 201):
+        raise EtkError(f"A ETK respondeu {resp.status_code}.")
     if not isinstance(body, dict) or body.get("status") != "success":
         raise EtkError("Resposta da ETK fora do formato esperado.")
     return body
@@ -103,11 +110,11 @@ def map_event(data: dict) -> dict:
         "image_url": data.get("imageUrl") or "",
         "ticket_prices": prices,
         "is_published": data.get("status") == "published",
+        "registration_mode": data.get("registrationMode") or "",
+        "confirmation_opens_at": parse_datetime(str(data.get("confirmationOpensAt") or "")),
+        "confirmation_deadline": parse_datetime(str(data.get("confirmationDeadline") or "")),
         "external_url": settings.ETK_PUBLIC_EVENT_URL.format(id=data["id"]) if settings.ETK_PUBLIC_EVENT_URL else "",
     }
-    if prices and not any(p["amount"] > 0 for p in prices):
-        # Evento grátis: a lotação definida na ETK passa a ser o limite das inscrições aqui
-        fields["capacity"] = int(data.get("totalTicketsPurchased") or 0) + sum(p["available"] for p in prices if p["status"] == "active")
     return fields
 
 
@@ -150,15 +157,40 @@ def sync_events(prune=True) -> SyncResult:
 TICKETS_PATH = "/back/borrow/external/tickets"
 
 
-def fetch_paid_tickets(phone=None, event_id=None, timeout=None) -> list:
-    """Bilhetes pagos (ou convites) emitidos com a nossa chave, filtrados por telefone 258… e/ou evento."""
-    params = {"payment": "paid"}
-    if phone:
-        params["phone"] = phone
-    if event_id:
-        params["eventId"] = event_id
+def fetch_tickets(*, phone=None, event_id=None, payment=None, since=None, timeout=None) -> list:
+    """Bilhetes emitidos com a nossa chave (a ETK devolve no máximo 500, os mais recentes primeiro)."""
+    params = {k: v for k, v in {"phone": phone, "eventId": event_id, "payment": payment, "since": since}.items() if v}
     data = _request("GET", TICKETS_PATH, params=params, timeout=timeout).get("data")
     if not isinstance(data, list):
+        raise EtkError("Resposta da ETK fora do formato esperado.")
+    return data
+
+
+def fetch_paid_tickets(phone=None, event_id=None, timeout=None) -> list:
+    return fetch_tickets(phone=phone, event_id=event_id, payment="paid", timeout=timeout)
+
+
+def get_ticket(ticket_id: str, timeout=None) -> dict:
+    data = _request("GET", f"{TICKETS_PATH}/{ticket_id}", timeout=timeout).get("data")
+    if not isinstance(data, dict):
+        raise EtkError("Resposta da ETK fora do formato esperado.")
+    return data
+
+
+def create_ticket(*, price_id, event_id, phone, full_name="", email="", payment_method="", external_reference="") -> dict:
+    """Emite o bilhete (e inicia o pagamento, se for pago). Devolve o bilhete + `paymentInstructions`."""
+    payload = {"priceId": price_id, "eventId": event_id, "phone": phone, "fullName": full_name, "email": email,
+               "paymentMethod": payment_method, "externalReference": external_reference}
+    data = _request("POST", TICKETS_PATH, json={k: v for k, v in payload.items() if v}, timeout=max(settings.ETK_TIMEOUT, 30)).get("data")
+    if not isinstance(data, dict) or "id" not in data:
+        raise EtkError("Resposta da ETK fora do formato esperado.")
+    return data
+
+
+def confirm_ticket(ticket_id: str, phone: str) -> dict:
+    """Confirma a presença de uma pré-inscrição."""
+    data = _request("POST", f"{TICKETS_PATH}/{ticket_id}/confirm", json={"phone": phone}).get("data")
+    if not isinstance(data, dict):
         raise EtkError("Resposta da ETK fora do formato esperado.")
     return data
 

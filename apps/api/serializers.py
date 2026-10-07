@@ -59,10 +59,35 @@ class EventSerializer(serializers.ModelSerializer):
 
 class RegistrationSerializer(serializers.ModelSerializer):
     event = serializers.SlugRelatedField(slug_field="slug", read_only=True)
+    ticket_id = serializers.CharField(source="external_ticket_id", read_only=True, allow_null=True)
+    payment = serializers.CharField(source="ticket_payment", read_only=True,
+                                    help_text="Estado do pagamento na ETK: paid, pending, preregistered, invited, failed, refunded…")
+    qr_value = serializers.CharField(source="ticket_qr", read_only=True,
+                                     help_text="Conteúdo do QR do bilhete (`TCKT…|assinatura`); só quando a inscrição está confirmada.")
+    price_name = serializers.CharField(source="ticket_price_name", read_only=True)
+    amount = serializers.DecimalField(source="ticket_amount", max_digits=12, decimal_places=2, read_only=True, allow_null=True)
+    expires_at = serializers.DateTimeField(source="ticket_expires_at", read_only=True)
+    checkout_url = serializers.CharField(source="ticket_checkout_url", read_only=True)
+    payment_instructions = serializers.CharField(source="ticket_instructions", read_only=True)
+    entered = serializers.BooleanField(source="ticket_entered", read_only=True)
 
     class Meta:
         model = Registration
-        fields = ["id", "event", "status", "distance", "checked_in_at", "created_at"]
+        fields = ["id", "event", "status", "distance", "checked_in_at", "created_at", "ticket_id", "payment", "qr_value",
+                  "price_name", "amount", "expires_at", "checkout_url", "payment_instructions", "entered"]
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        if instance.status != Registration.Status.CONFIRMED:
+            data["qr_value"] = ""  # o QR só existe depois de o bilhete estar confirmado
+        return data
+
+
+class RegisterRequestSerializer(serializers.Serializer):
+    price = serializers.CharField(required=False, allow_blank=True, help_text="`id` do lote (eventos da ETK com mais de um bilhete).")
+    payment_method = serializers.ChoiceField(choices=["mpesa", "emola", "mkesh"], required=False, allow_blank=True,
+                                             help_text="Obrigatório em bilhetes pagos: o pedido de pagamento chega ao telemóvel do perfil.")
+    distance = serializers.CharField(required=False, allow_blank=True, max_length=20, help_text="Só em eventos que não são da ETK.")
 
 
 class RunSerializer(serializers.ModelSerializer):

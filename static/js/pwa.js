@@ -238,4 +238,32 @@
       return Promise.all(keys.filter(function (k) { return k.indexOf("-pages") > -1; }).map(function (k) { return caches.delete(k); }));
     }).then(function () { store.set("rwb-cache-user", userId); }).catch(function () {});
   }
+
+  // 5. Inscrição em eventos da ETK: ecrã «a aguardar pagamento» e escolha do método -----------------
+  var poll = document.querySelector("[data-ticket-poll]");
+  if (poll) {
+    var tries = 0;
+    var tick = function () {
+      if (document.hidden) return setTimeout(tick, 4000);
+      fetch(poll.getAttribute("data-ticket-poll"), { credentials: "same-origin" })
+        .then(function (r) { return r.json(); })
+        .then(function (d) {
+          if (d.status !== "pending") return location.reload();  // pago (ou recusado): mostra o bilhete / o erro
+          if (++tries < 45) setTimeout(tick, 4000);              // ~3 minutos; depois pede para actualizar à mão
+          else poll.querySelector("[data-ticket-poll-note]").textContent = "Ainda sem confirmação. Actualiza a página depois de aprovares o pagamento.";
+        })
+        .catch(function () { if (++tries < 45) setTimeout(tick, 6000); });
+    };
+    setTimeout(tick, 3000);
+  }
+  var ticketForm = document.querySelector("[data-ticket-form]");
+  if (ticketForm) {
+    var methods = ticketForm.querySelector("[data-pay-methods]");
+    var sync = function () {
+      var picked = ticketForm.querySelector("[name=price]:checked");
+      if (methods && picked) methods.hidden = !(parseFloat(picked.getAttribute("data-amount")) > 0);
+    };
+    ticketForm.addEventListener("change", sync);
+    sync();
+  }
 })();

@@ -5,17 +5,26 @@ from datetime import timezone as dt_timezone
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
-from django.http import HttpResponse
+from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.views.decorators.http import require_POST
 
-from . import services
+from . import services, tickets
 from .models import Event, Registration
 
 
 def distance_options(event):
     return [d.strip() for d in re.split(r"[·,;/|]", event.distances or "") if d.strip()]
+
+
+def member_qr_svg_for(registration):
+    """QR do bilhete da ETK (o que o porteiro lê) em SVG inline; vazio se não houver bilhete pago."""
+    if registration and registration.has_ticket and registration.is_active and registration.ticket_qr:
+        from apps.accounts.qr import qr_svg
+
+        return qr_svg(registration.ticket_qr)
+    return ""
 
 
 def event_list(request):
@@ -43,10 +52,14 @@ def event_detail(request, slug):
     registration = None
     if request.user.is_authenticated:
         registration = Registration.objects.filter(event=event, user=request.user).first()
+    if registration and registration.is_pending_payment:
+        registration = tickets.refresh_registration(registration, timeout=4)  # já pode ter sido pago entretanto
     return render(request, "events/detail.html", {
         "event": event,
         "registration": registration,
         "distances": distance_options(event),
+        "payment_methods": tickets.PAYMENT_METHODS,
+        "ticket_qr_svg": member_qr_svg_for(registration),
     })
 
 
@@ -54,6 +67,8 @@ def event_detail(request, slug):
 @require_POST
 def event_register(request, slug):
     event = get_object_or_404(Event.objects.published(), slug=slug)
+    if event.is_external:
+        return _register_ticket(request, event)
     distance = request.POST.get("distance", "")[:20]
     options = distance_options(event)
     if options and distance not in options:
@@ -65,6 +80,40 @@ def event_register(request, slug):
     else:
         messages.success(request, "Inscrição confirmada! Enviámos os detalhes para o teu email.")
     return redirect(event.get_absolute_url())
+
+
+def _register_ticket(request, event):
+    try:
+        reg = tickets.buy_ticket(request.user, event, request.POST.get("price", ""), request.POST.get("payment_method", ""))
+    except tickets.TicketError as exc:
+        messages.error(request, str(exc))
+    else:
+        if reg.is_active:
+            messages.success(request, "Inscrição confirmada! O teu bilhete está nesta página.")
+        else:
+            messages.info(request, reg.ticket_instructions or "Pedido de pagamento enviado para o teu telemóvel. Confirma-o para receberes o bilhete.")
+    return redirect(event.get_absolute_url())
+
+
+@login_required
+@require_POST
+def event_confirm_presence(request, slug):
+    event = get_object_or_404(Event.objects.published(), slug=slug)
+    try:
+        tickets.confirm_presence(request.user, event)
+    except tickets.TicketError as exc:
+        messages.error(request, str(exc))
+    else:
+        messages.success(request, "Presença confirmada!")
+    return redirect(event.get_absolute_url())
+
+
+@login_required
+def event_ticket_status(request, slug):
+    """JSON para o ecrã «a aguardar pagamento» saber quando o pagamento entrou."""
+    reg = get_object_or_404(Registration, event__slug=slug, user=request.user, external_ticket_id__isnull=False)
+    reg = tickets.refresh_registration(reg, timeout=6)
+    return JsonResponse({"status": reg.status, "payment": reg.ticket_payment})
 
 
 @login_required
