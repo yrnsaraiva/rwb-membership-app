@@ -51,6 +51,7 @@ python manage.py makemigrations --check --dry-run   # confirma que as migraçõe
    - `REDIS_URL` — **recomendado em produção**: o rate-limit do login e o ranking precisam de cache partilhada entre workers (`check --deploy` avisa se faltar)
    - `TRUSTED_PROXY_COUNT` — nº de proxies à frente da app (omissão: 1, o Railway); usado para obter o IP real do cliente
    - Eventos (ETK): `ETK_BASE` (ex.: `https://etk-api.up.railway.app`), `ETK_API_KEY` (`etk_live_…`, chave de parceiro) e `ETK_PUBLIC_EVENT_URL` (link de compra do bilhete, com `{id}`)
+   - Webhook da ETK: `ETK_WEBHOOK_SECRET` (o `webhook_secret` do organizador na ETK)
    - Notificações push: `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY` (gerar com `python manage.py generate_vapid_keys`) e `VAPID_CONTACT` (`mailto:…`). Sem as chaves o botão «Ativar notificações» não aparece
    - Opcionais: `SENTRY_DSN` (monitorização de erros), `API_TOKEN_TTL_DAYS` (validade dos tokens da API, 30), `RWB_MAX_RUNS_PER_DAY` (4) e `RWB_MAX_DAILY_KM` (100), limites anti-batota
    - Loja: `RWB_SHOP_MPESA_NUMBER`, `RWB_SHOP_MPESA_NAME`, `RWB_SHOP_BANK_DETAILS` (aparecem nas instruções de pagamento), `RWB_SHOP_DELIVERY_FEE`, `RWB_PREMIUM_SHOP_DISCOUNT`
@@ -161,6 +162,9 @@ Com `ETK_BASE` + `ETK_API_KEY` definidos, **a ETK é a fonte dos eventos, das in
 - Um bilhete não se cancela na app (a ETK não tem esse pedido): a página manda falar com a organização.
 - Cada inscrição local é o **espelho** de um bilhete (`Registration.external_ticket_id`): `python manage.py sync_etk_tickets` (5 em 5 min) traz pagamentos concluídos, compras feitas no **site**, reembolsos e entradas dadas à porta — inclusive por outras apps da ETK, que também pagam os pontos. O titular reconhece-se pelo telemóvel do bilhete (ou email), só se for único.
 - Email de confirmação e push («Bilhete confirmado») só quando a inscrição foi feita na app.
+
+**Avisos instantâneos (webhook)** — a ETK avisa o RWB quando um bilhete é pago ou reembolsado (`ticket.paid`, `ticket.refunded`) em `POST /webhooks/etk/`: a inscrição aparece/desaparece na hora, sem esperar pela sincronização (que continua como rede de segurança). Assinatura `X-ETK-Signature` (HMAC-SHA256 do corpo) verificada com `ETK_WEBHOOK_SECRET`; sem esse segredo o endpoint está desligado (404). Avisos repetidos são ignorados (`X-ETK-Delivery-ID`), avisos atrasados nunca desfazem um estado mais recente (`updatedAt`), e evento ainda não sincronizado ou erro nosso → 503/500 para a ETK tentar de novo (1, 5, 15, 60 min).
+Configuração: na ETK, no organizador, `webhook_url=https://<domínio do RWB>/webhooks/etk/`; o `webhook_secret` que a ETK gera (ou o que definires) vai para `ETK_WEBHOOK_SECRET` no RWB; e `python manage.py deliver_webhooks` tem de correr de minuto a minuto na ETK. **Atenção:** a ETK só guarda **um** `webhook_url` por organizador — se o site já usa esse campo, trocá-lo corta o site; nesse caso a ETK precisa de suportar vários destinos (ou o site reencaminha os avisos para o RWB).
 
 **Entrada à porta** — o botão «Ler QR» do painel lê o **QR do bilhete** (`TCKT…|assinatura`: valida na ETK, dá a entrada e a presença/pontos) ou o **cartão de membro** (a ficha traz primeiro os bilhetes dele da ETK e mostra «Dar entrada»). Cada entrada paga pontos uma só vez; quem não é membro entra na mesma. A entrada não se desfaz (está na ETK).
 

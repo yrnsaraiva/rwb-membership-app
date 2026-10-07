@@ -207,6 +207,8 @@ class Registration(models.Model):
     ticket_entered = models.BooleanField("entrou (ETK)", default=False, editable=False)
     via_app = models.BooleanField("comprado na app", default=False, editable=False)
     ticket_synced_at = models.DateTimeField(null=True, blank=True, editable=False)
+    ticket_updated_at = models.DateTimeField("bilhete actualizado na ETK", null=True, blank=True, editable=False,
+                                             help_text="`updatedAt` do último estado aplicado: estados mais antigos são ignorados.")
 
     class Meta:
         verbose_name = "inscrição"
@@ -238,3 +240,15 @@ class SyncCursor(models.Model):
 
     def __str__(self):
         return f"{self.name}: {self.synced_at:%Y-%m-%d %H:%M}"
+
+
+class WebhookDelivery(models.Model):
+    """Avisos da ETK já processados (X-ETK-Delivery-ID): a ETK repete a entrega se não responder 2xx a tempo."""
+
+    delivery_id = models.CharField(max_length=40, unique=True)
+    event = models.CharField(max_length=40)
+    ticket_id = models.CharField(max_length=40, blank=True)
+    received_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.event} #{self.delivery_id}"

@@ -69,6 +69,9 @@ def upsert_registration(ticket: dict, user=None, *, via_app=False):
         reg = other or Registration(event=event, user=user)
         reg.via_app = via_app
     previous = reg.status if reg.pk else None
+    updated_at = parse_datetime(str(ticket.get("updatedAt") or ""))
+    if reg.pk and updated_at and reg.ticket_updated_at and updated_at < reg.ticket_updated_at:
+        return reg  # aviso atrasado (webhook repetido/fora de ordem): o estado que já temos é mais recente
 
     reg.external_ticket_id = ticket["id"]
     reg.status = new_status
@@ -82,6 +85,7 @@ def upsert_registration(ticket: dict, user=None, *, via_app=False):
     reg.ticket_instructions = (ticket.get("paymentInstructions") or reg.ticket_instructions or "")[:255]
     reg.ticket_entered = bool(ticket.get("entered"))
     reg.ticket_synced_at = timezone.now()
+    reg.ticket_updated_at = updated_at or reg.ticket_updated_at
     reg.save()
 
     # Entrou (por qualquer porta, também pela app da ETK): paga os pontos de presença uma só vez
