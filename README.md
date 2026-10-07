@@ -147,6 +147,13 @@ Logótipos em `static/img/brand/` (versão amarela para fundo escuro, preta para
 
 ---
 
+## PWA no telemóvel
+
+- **Android:** instalável pelo botão «Instalar RWB» (página inicial) ou pelo menu do Chrome.
+- **iPhone:** o Safari não tem botão de instalar, por isso a app mostra um guia («Partilhar → Adicionar ao ecrã principal») e ecrãs de arranque próprios (`python scripts/make_ios_splash.py` volta a gerá-los).
+- **Offline:** o cartão de membro, o dashboard, eventos, ranking e loja ficam guardados depois da primeira visita; com rede fraca (>4 s) mostra-se a cópia guardada e um aviso. Terminar sessão ou mudar de membro apaga as cópias.
+- **Staff:** o botão «Ler QR» do painel abre a câmara do navegador e leva à ficha do sócio para marcar presença (precisa de HTTPS).
+
 ## Notificações (PWA)
 
 Web Push com chaves VAPID, sem Firebase nem conta de loja. No **Android** funciona no browser ou na PWA instalada; no **iPhone** (iOS 16.4+) só com a app instalada no ecrã principal — o Perfil explica isso ao membro.
