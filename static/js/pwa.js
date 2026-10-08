@@ -115,7 +115,12 @@
     var hasCamera = !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
     if (!hasCamera) document.querySelectorAll("[data-scan-open]").forEach(function (b) { b.hidden = true; });
 
-    var say = function (t) { msg.textContent = t; };
+    var TICKET_QR = /^TCKT\d+\|[0-9a-f]{16}$/;
+    var holdUntil = 0;
+    var say = function (t, tone) {
+      msg.textContent = t;
+      msg.className = "scanner-msg" + (tone ? " is-" + tone : "");
+    };
     var stop = function () {
       clearTimeout(timer); timer = null; busy = false;
       if (stream) stream.getTracks().forEach(function (t) { t.stop(); });
@@ -129,10 +134,27 @@
         return u.host === location.host && CARD_PATH.test(u.pathname) ? u.pathname : null;
       } catch (e) { return null; }
     };
+    // Bilhete da ETK: valida à porta, marca a entrada e dá os pontos ao membro. Continua a ler o bilhete seguinte.
+    var scanTicket = function (qr) {
+      holdUntil = Date.now() + 20000;
+      say("A validar bilhete…");
+      var body = new URLSearchParams({ qrValue: qr });
+      fetch("/painel/bilhetes/entrada/", { method: "POST", credentials: "same-origin", body: body, headers: { "X-CSRFToken": csrf() } })
+        .then(function (r) { return r.json(); })
+        .then(function (d) {
+          var who = [d.holder, d.event].filter(Boolean).join(" · ");
+          var member = d.member ? d.member.name + " (" + d.member.member_number + ")" + (d.points ? " · +" + d.points + " pts" : "") : (d.result === "ok" || d.result === "already_entered" ? "não é membro RWB" : "");
+          var tone = d.result === "ok" ? "ok" : d.result === "already_entered" ? "warn" : "bad";
+          say((tone === "ok" ? "✓ " : tone === "warn" ? "⚠ " : "✕ ") + d.message + (who ? "\n" + who : "") + (member ? "\n" + member : ""), tone);
+        })
+        .catch(function () { say("✕ Sem ligação ao servidor. Tenta de novo.", "bad"); })
+        .then(function () { holdUntil = Date.now() + 3500; });
+    };
     var onCode = function (text) {
+      if (TICKET_QR.test(text.trim())) { scanTicket(text.trim()); return false; }
       var path = cardPath(text);
       if (path) { say("Cartão lido ✓"); stop(); location.href = path; return true; }
-      say("Este QR não é um cartão de membro RWB.");
+      say("Este QR não é um cartão de membro nem um bilhete.", "bad");
       return false;
     };
     var loadJsQR = function () {
@@ -153,7 +175,7 @@
     var scanFrame = function () {
       if (!stream) return;
       var next = function (wait) { if (stream) timer = setTimeout(scanFrame, wait || 120); };
-      if (video.readyState < 2) return next();
+      if (video.readyState < 2 || Date.now() < holdUntil) return next();
       var done = function (text) { if (text && onCode(text)) return; next(text ? 1200 : 120); };
       if (detector) {
         detector.detect(video).then(function (r) { done(r.length ? r[0].rawValue : null); }).catch(function () { next(); });
@@ -177,7 +199,7 @@
         video.srcObject = stream;
         return (detector ? Promise.resolve() : loadJsQR()).then(function () { return video.play(); });
       }).then(function () {
-        say("Aponta ao QR do cartão do membro");
+        say("Aponta ao QR do cartão do membro ou do bilhete");
         scanFrame();
       }).catch(function (err) {
         var name = err && err.name;
@@ -215,5 +237,33 @@
     caches.keys().then(function (keys) {
       return Promise.all(keys.filter(function (k) { return k.indexOf("-pages") > -1; }).map(function (k) { return caches.delete(k); }));
     }).then(function () { store.set("rwb-cache-user", userId); }).catch(function () {});
+  }
+
+  // 5. Inscrição em eventos da ETK: ecrã «a aguardar pagamento» e escolha do método -----------------
+  var poll = document.querySelector("[data-ticket-poll]");
+  if (poll) {
+    var tries = 0;
+    var tick = function () {
+      if (document.hidden) return setTimeout(tick, 4000);
+      fetch(poll.getAttribute("data-ticket-poll"), { credentials: "same-origin" })
+        .then(function (r) { return r.json(); })
+        .then(function (d) {
+          if (d.status !== "pending") return location.reload();  // pago (ou recusado): mostra o bilhete / o erro
+          if (++tries < 45) setTimeout(tick, 4000);              // ~3 minutos; depois pede para actualizar à mão
+          else poll.querySelector("[data-ticket-poll-note]").textContent = "Ainda sem confirmação. Actualiza a página depois de aprovares o pagamento.";
+        })
+        .catch(function () { if (++tries < 45) setTimeout(tick, 6000); });
+    };
+    setTimeout(tick, 3000);
+  }
+  var ticketForm = document.querySelector("[data-ticket-form]");
+  if (ticketForm) {
+    var methods = ticketForm.querySelector("[data-pay-methods]");
+    var sync = function () {
+      var picked = ticketForm.querySelector("[name=price]:checked");
+      if (methods && picked) methods.hidden = !(parseFloat(picked.getAttribute("data-amount")) > 0);
+    };
+    ticketForm.addEventListener("change", sync);
+    sync();
   }
 })();

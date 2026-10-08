@@ -8,7 +8,7 @@ from django.contrib.admin.views.decorators import staff_member_required
 from django.contrib.auth import get_user_model
 from django.core.paginator import Paginator
 from django.db.models import Q, Sum
-from django.http import HttpResponse
+from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.views.decorators.http import require_http_methods, require_POST
@@ -17,6 +17,7 @@ from apps.activity import services as activity
 from apps.activity.models import PointTransaction, Run
 from apps.billing.models import Subscription
 from apps.events import services as event_services
+from apps.events import ticket_checkin
 from apps.events.models import Event, Registration
 from apps.shop import services as shop_services
 from apps.shop.models import Order
@@ -173,14 +174,15 @@ def event_form(request, pk=None):
 @staff_required
 @require_POST
 def events_sync(request):
-    from apps.events import etk
+    from apps.events import etk, tickets
 
     try:
         result = etk.sync_events()
+        tix = tickets.sync_tickets()
     except etk.EtkError as exc:
         messages.error(request, f"Não foi possível sincronizar com a ETK: {exc}")
     else:
-        messages.success(request, f"ETK sincronizada: {result}.")
+        messages.success(request, f"ETK sincronizada: eventos ({result}); {tix['matched']} bilhete(s) ligado(s) a membros.")
     return redirect("panel:events")
 
 
@@ -227,7 +229,15 @@ def event_registrations(request, pk):
 @require_POST
 def registration_checkin(request, pk):
     reg = get_object_or_404(Registration.objects.select_related("event", "user"), pk=pk)
-    if reg.checked_in_at:
+    if reg.has_ticket:
+        # Bilhete da ETK: a entrada dá-se na ETK (e não se desfaz); os pontos vêm do espelho
+        if reg.ticket_entered or reg.checked_in_at:
+            messages.info(request, f"{reg.user.display_name} já tem a entrada registada.")
+        else:
+            outcome = ticket_checkin.check_in_by_qr(reg.ticket_qr)
+            text = f"{outcome.message} — {reg.user.display_name}" + (f" (+{outcome.points} pts)" if outcome.points else "")
+            (messages.success if outcome.admitted else messages.error)(request, text)
+    elif reg.checked_in_at:
         event_services.undo_check_in(reg)
         messages.info(request, f"Presença de {reg.user.display_name} removida.")
     elif event_services.check_in(reg):
@@ -342,3 +352,13 @@ def order_action(request, pk):
         messages.error(request, str(exc))
     next_url = request.POST.get("next", "")
     return redirect(next_url if next_url.startswith("/") and not next_url.startswith("//") else "panel:orders")
+
+
+# --- Entrada de bilhetes da ETK -----------------------------------------------------------------
+@require_POST
+def ticket_scan(request):
+    """Leitor de QR à porta: bilhete `TCKT…|assinatura` → entrada na ETK + presença/pontos do membro. Responde em JSON."""
+    if not (request.user.is_authenticated and request.user.is_staff):
+        return JsonResponse({"result": "error", "message": "Sem permissão."}, status=403)
+    outcome = ticket_checkin.check_in_by_qr(request.POST.get("qrValue", ""))
+    return JsonResponse(outcome.as_dict())

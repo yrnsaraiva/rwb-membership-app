@@ -7,10 +7,10 @@
   <tr><td style="padding:14px 16px;{% if registration.distance %}border-bottom:1px solid #2a2a2e;{% endif %}"><span style="color:#9a9aa2;font-size:12px;">ONDE</span><br><strong style="color:#fff;">{{ event.location }}</strong>{% if event.meeting_point %}<br><span>{{ event.meeting_point }}</span>{% endif %}</td></tr>
   {% if registration.distance %}<tr><td style="padding:14px 16px;"><span style="color:#9a9aa2;font-size:12px;">DISTÂNCIA</span><br><strong style="color:#fff;">{{ registration.distance }}</strong></td></tr>{% endif %}
 </table>
-<p style="margin-top:18px;">Mostra o teu cartão de membro (QR) à chegada para ganhares <strong style="color:#FABB00;">+{{ event.effective_checkin_points }} pontos</strong>.</p>
+<p style="margin-top:18px;">{% if registration.has_ticket %}O teu bilhete (com QR) está na página do evento: mostra-o à chegada e ganhas{% else %}Mostra o teu cartão de membro (QR) à chegada para ganhares{% endif %} <strong style="color:#FABB00;">+{{ event.effective_checkin_points }} pontos</strong>.</p>
 <p style="margin:24px 0;">
   <a href="{{ site_url }}{{ event.get_absolute_url }}" style="background:#FABB00;color:#0B0B0B;padding:12px 20px;border-radius:999px;text-decoration:none;font-weight:600;">Ver evento</a>
   &nbsp;<a href="{{ site_url }}{% url 'events:ics' event.slug %}" style="color:#f4f4f5;padding:12px 8px;text-decoration:underline;">Adicionar ao calendário</a>
 </p>
-<p style="color:#9a9aa2;font-size:13px;">Se não puderes ir, cancela na app para libertares a vaga para outro membro.</p>
+<p style="color:#9a9aa2;font-size:13px;">{% if registration.has_ticket %}Para cancelar ou alterar o bilhete, fala com a organização.{% else %}Se não puderes ir, cancela na app para libertares a vaga para outro membro.{% endif %}</p>
 {% endblock %}

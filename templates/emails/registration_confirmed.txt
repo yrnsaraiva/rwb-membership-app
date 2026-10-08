@@ -7,10 +7,10 @@ Quando: {{ event.starts_at|date:"l, j \d\e F \à\s H:i" }}
 Onde: {{ event.location }}{% if event.meeting_point %} — {{ event.meeting_point }}{% endif %}{% if registration.distance %}
 Distância: {{ registration.distance }}{% endif %}
 
-Mostra o teu cartão de membro (QR) à chegada para ganhares {{ event.effective_checkin_points }} pontos.
+{% if registration.has_ticket %}O teu bilhete (com QR) está na página do evento: mostra-o à chegada e ganhas {{ event.effective_checkin_points }} pontos.{% else %}Mostra o teu cartão de membro (QR) à chegada para ganhares {{ event.effective_checkin_points }} pontos.{% endif %}
 Detalhes do evento: {{ site_url }}{{ event.get_absolute_url }}
 Adicionar ao calendário: {{ site_url }}{% url 'events:ics' event.slug %}
 
-Se não puderes ir, cancela na app para libertares a vaga.
+{% if not registration.has_ticket %}Se não puderes ir, cancela na app para libertares a vaga.{% else %}Para cancelar ou alterar o bilhete, fala com a organização.{% endif %}
 
 Equipa RWB{% endautoescape %}

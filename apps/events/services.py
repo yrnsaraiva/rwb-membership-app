@@ -17,8 +17,8 @@ def register(user, event: Event, distance: str = "") -> Registration:
     event = Event.objects.select_for_update().get(pk=event.pk)
     if not event.registration_is_open:
         raise RegistrationError("As inscrições para este evento não estão abertas.")
-    if event.has_paid_ticket:
-        raise RegistrationError("Este evento tem bilhete pago: a inscrição faz-se no site de bilhetes.")
+    if event.is_external:
+        raise RegistrationError("A inscrição neste evento faz-se com bilhete (ETK).")
     if event.members_only and not user.is_premium:
         raise RegistrationError("Este evento é exclusivo para membros premium.")
 
@@ -52,6 +52,8 @@ def cancel(user, event: Event) -> Registration:
     ).first()
     if not registration:
         raise RegistrationError("Não tens inscrição activa neste evento.")
+    if registration.external_ticket_id:
+        raise RegistrationError("Os bilhetes não se cancelam na app. Fala com a organização do evento.")
     if event.is_past:
         raise RegistrationError("Não é possível cancelar a inscrição num evento que já começou.")
     registration.status = Registration.Status.CANCELLED

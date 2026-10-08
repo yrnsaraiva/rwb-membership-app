@@ -260,6 +260,7 @@ ETK_API_KEY = env("ETK_API_KEY", "")                  # chave de parceiro: etk_l
 ETK_EVENTS_PATH = env("ETK_EVENTS_PATH", "/back/borrow/external/events")
 ETK_PUBLIC_EVENT_URL = env("ETK_PUBLIC_EVENT_URL", "")  # página de bilhetes de um evento, ex.: https://runwithbroto.co.mz/eventos/{id}
 ETK_TIMEOUT = int(env("ETK_TIMEOUT", "15"))
+ETK_WEBHOOK_SECRET = env("ETK_WEBHOOK_SECRET", "")     # segredo do webhook do organizador na ETK (X-ETK-Signature)
 ETK_ENABLED = bool(ETK_BASE and ETK_API_KEY)          # ligado: os eventos vêm da ETK e o painel deixa de os criar
 
 # Regras de negócio (pontos) ---------------------------------------------------

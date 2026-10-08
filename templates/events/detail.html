@@ -37,8 +37,8 @@
   {% endif %}
   <div class="card card-pad">
     <p class="stat-label flex items-center gap-1.5">{% include "icons/users.svg" with cls="w-3.5 h-3.5" %} Vagas</p>
-    {% if event.has_paid_ticket %}
-      <p class="font-semibold mt-1.5 tabular">{% if event.tickets_available %}{{ event.tickets_available }} bilhete{{ event.tickets_available|pluralize }}{% else %}<span class="text-danger">Esgotado</span>{% endif %}</p>
+    {% if event.is_external %}
+      <p class="font-semibold mt-1.5 tabular">{% if event.tickets_available %}{{ event.tickets_available }} {% if event.has_paid_ticket %}bilhete{{ event.tickets_available|pluralize }}{% else %}vaga{{ event.tickets_available|pluralize }}{% endif %}{% else %}<span class="text-danger">Esgotado</span>{% endif %}</p>
     {% elif event.capacity %}
       <p class="font-semibold mt-1.5 tabular">{% if event.is_full %}<span class="text-danger">Esgotado</span>{% else %}{{ event.spots_left }} de {{ event.capacity }}{% endif %}</p>
       <div class="progress mt-2 {% if event.spots_left <= 5 %}is-hot{% endif %}"><span style="width: {% widthratio event.confirmed_total event.capacity 100 %}%"></span></div>
@@ -77,6 +77,10 @@
 {% endif %}
 
 <section class="card card-pad mt-6">
+  {% if event.is_external %}
+    {% include "events/_ticket_box.html" %}
+    {% if event.external_url and not registration %}<p class="text-xs text-muted text-center mt-4">Preferes o site? <a href="{{ event.external_url }}" target="_blank" rel="noopener" class="underline">Comprar bilhete ↗</a></p>{% endif %}
+  {% else %}
   {% if registration and registration.is_active %}
     <div class="flex items-center gap-3">
       <span class="w-10 h-10 rounded-full grid place-items-center bg-brand-tint text-accent">{% include "icons/check.svg" %}</span>
@@ -138,6 +142,7 @@
       <button type="submit" class="btn btn-primary btn-block">Confirmar inscrição</button>
       <p class="text-xs text-muted text-center">Recebes a confirmação por email.</p>
     </form>
+  {% endif %}
   {% endif %}
 </section>
 {% endblock %}

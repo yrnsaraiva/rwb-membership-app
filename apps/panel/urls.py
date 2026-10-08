@@ -16,6 +16,7 @@ urlpatterns = [
     path("eventos/<int:pk>/apagar/", views.event_delete, name="event_delete"),
     path("eventos/<int:pk>/inscritos/", views.event_registrations, name="event_registrations"),
     path("inscricoes/<int:pk>/presenca/", views.registration_checkin, name="registration_checkin"),
+    path("bilhetes/entrada/", views.ticket_scan, name="ticket_scan"),
     path("corridas/", views.runs, name="runs"),
     path("corridas/<int:pk>/validade/", views.run_toggle_valid, name="run_toggle_valid"),
     path("encomendas/", views.orders, name="orders"),

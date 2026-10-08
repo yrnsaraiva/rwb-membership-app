@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth import login
 from django.contrib.auth import views as auth_views
@@ -92,8 +93,14 @@ def verify(request, token):
 
         from django.utils import timezone
 
+        from apps.events import etk, tickets
         from apps.events.models import Registration
 
+        if settings.ETK_ENABLED:
+            try:  # bilhetes comprados no site ainda não espelhados: traz-os agora
+                tickets.refresh_member(member)
+            except etk.EtkError:
+                context["etk_error"] = True
         now = timezone.now()
         context["today_registrations"] = Registration.objects.filter(
             user=member, status=Registration.Status.CONFIRMED,

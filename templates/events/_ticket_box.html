@@ -1,0 +1,87 @@
+{% comment %}Inscrição em eventos da ETK: o bilhete (QR), o pagamento pendente ou a escolha do bilhete. Espera: event, registration, user, payment_methods, ticket_qr_svg.{% endcomment %}
+{% if registration and registration.has_ticket and registration.is_active %}
+  <div class="flex items-center gap-3">
+    <span class="w-10 h-10 rounded-full grid place-items-center bg-brand-tint text-accent">{% include "icons/check.svg" %}</span>
+    <div class="flex-1">
+      {% if registration.ticket_payment == "preregistered" %}
+        <p class="font-semibold">Pré-inscrição feita</p>
+        <p class="text-sm text-muted">{% if event.confirmation_is_open %}Confirma a tua presença para garantires a vaga{% if event.confirmation_deadline %} até {{ event.confirmation_deadline|date:"j M, H:i" }}{% endif %}.{% elif event.confirmation_opens_at %}A confirmação abre a {{ event.confirmation_opens_at|date:"j M, H:i" }}.{% else %}O clube avisa-te quando abrir a confirmação.{% endif %}</p>
+      {% else %}
+        <p class="font-semibold">Tens bilhete{% if registration.ticket_price_name %} · {{ registration.ticket_price_name }}{% endif %}</p>
+        <p class="text-sm text-muted">{% if registration.ticket_entered or registration.checked_in_at %}Entrada registada. Bom trabalho!{% else %}Mostra este QR à entrada.{% endif %}</p>
+      {% endif %}
+    </div>
+  </div>
+  {% if registration.ticket_payment == "preregistered" and event.confirmation_is_open %}
+    <form method="post" action="{% url 'events:confirm_presence' event.slug %}" class="mt-4">{% csrf_token %}<button class="btn btn-primary btn-block">Confirmar presença</button></form>
+  {% elif ticket_qr_svg and registration.ticket_payment != "preregistered" %}
+    <div class="qr-box mt-4 mx-auto max-w-[220px]" aria-label="QR do bilhete">{{ ticket_qr_svg }}</div>
+    <p class="text-center text-xs text-muted mt-2 tabular">{{ registration.external_ticket_id }}</p>
+  {% endif %}
+  <a href="{% url 'events:ics' event.slug %}" class="btn btn-ghost btn-block mt-4">{% include "icons/calendar.svg" with cls="w-4 h-4" %} Adicionar ao calendário</a>
+  <p class="text-xs text-muted text-center mt-3">Para cancelar ou alterar o bilhete, fala com a organização.</p>
+
+{% elif registration and registration.is_pending_payment %}
+  <div data-ticket-poll="{% url 'events:ticket_status' event.slug %}">
+    <p class="font-semibold">A aguardar o pagamento</p>
+    <p class="text-sm text-muted mt-1">{{ registration.ticket_instructions|default:"Aprova o pedido de pagamento no teu telemóvel." }}</p>
+    {% if registration.ticket_amount %}<p class="text-sm mt-2">Total: <strong class="tabular">{{ registration.ticket_amount|floatformat:"0g" }} MZN</strong></p>{% endif %}
+    {% if registration.ticket_checkout_url %}<a href="{{ registration.ticket_checkout_url }}" class="btn btn-primary btn-block mt-4" rel="noopener">Pagar com cartão ↗</a>{% endif %}
+    <p class="text-xs text-muted mt-3" data-ticket-poll-note>A página actualiza sozinha quando o pagamento entrar.{% if registration.ticket_expires_at %} A reserva termina às {{ registration.ticket_expires_at|date:"H:i" }}.{% endif %}</p>
+  </div>
+
+{% elif event.is_past %}
+  <p class="text-muted text-center">Este evento já aconteceu.</p>
+{% elif not user.is_authenticated %}
+  <p class="font-semibold">Queres participar?</p>
+  <p class="text-sm text-muted mb-4">Entra ou cria a tua conta de membro (grátis) para te inscreveres.</p>
+  <div class="flex gap-3">
+    <a href="{% url 'accounts:login' %}?next={{ request.path|urlencode }}" class="btn btn-ghost flex-1">Entrar</a>
+    <a href="{% url 'accounts:register' %}" class="btn btn-primary flex-1">Criar conta</a>
+  </div>
+{% elif not event.sellable_prices %}
+  <p class="font-semibold text-danger">Bilhetes esgotados</p>
+  <p class="text-sm text-muted">Quando houver vaga, volta a aparecer aqui.</p>
+{% elif event.members_only and not user.is_premium %}
+  <p class="font-semibold">Exclusivo para membros premium</p>
+  <p class="text-sm text-muted mb-4">Torna-te premium para teres acesso a este e outros eventos exclusivos.</p>
+  <a href="{% url 'billing:plans' %}" class="btn btn-primary btn-block">Ver planos premium</a>
+{% elif not user.phone_e164 %}
+  <p class="font-semibold">Falta o teu telemóvel</p>
+  <p class="text-sm text-muted mb-4">O bilhete fica associado ao teu número de telemóvel (e é nele que recebes o pedido de pagamento).</p>
+  <a href="{% url 'accounts:profile_edit' %}" class="btn btn-primary btn-block">Indicar telemóvel</a>
+{% else %}
+  <form method="post" action="{% url 'events:register' event.slug %}" class="space-y-4" data-ticket-form>
+    {% csrf_token %}
+    <fieldset>
+      <legend class="label mb-2">{% if event.sellable_prices|length > 1 %}Escolhe o bilhete{% else %}Bilhete{% endif %}</legend>
+      <div class="grid gap-2">
+        {% for p in event.sellable_prices %}
+          <label class="cursor-pointer">
+            <input type="radio" name="price" value="{{ p.id }}" data-amount="{{ p.amount }}" class="peer sr-only" {% if forloop.first %}checked{% endif %}>
+            <span class="flex justify-between items-center gap-3 px-4 py-3 rounded-xl border border-line bg-surface2 peer-checked:border-brand">
+              <span><span class="font-semibold">{{ p.name }}</span>{% if p.available <= 10 %}<span class="block text-xs text-danger">Só restam {{ p.available }}</span>{% endif %}</span>
+              <span class="font-semibold tabular">{% if p.amount %}{{ p.amount|floatformat:"0g" }} {{ p.currency }}{% else %}Grátis{% endif %}</span>
+            </span>
+          </label>
+        {% endfor %}
+      </div>
+    </fieldset>
+    {% if event.has_paid_ticket %}
+    <fieldset data-pay-methods {% if not event.sellable_prices.0.amount %}hidden{% endif %}>
+      <legend class="label mb-2">Pagar com</legend>
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
+        {% for key, name in payment_methods.items %}
+          <label class="cursor-pointer">
+            <input type="radio" name="payment_method" value="{{ key }}" class="peer sr-only" {% if forloop.first %}checked{% endif %}>
+            <span class="block text-center py-3 rounded-xl border border-line bg-surface2 text-sm font-semibold peer-checked:border-brand peer-checked:text-accent">{{ name }}</span>
+          </label>
+        {% endfor %}
+      </div>
+      <p class="text-xs text-muted mt-2">Vais receber o pedido de pagamento no <strong>{{ user.phone }}</strong>. Para outro número, altera-o no <a href="{% url 'accounts:profile_edit' %}" class="underline">perfil</a>.</p>
+    </fieldset>
+    {% endif %}
+    <button type="submit" class="btn btn-primary btn-block">{% if event.has_paid_ticket %}Continuar{% else %}Confirmar inscrição{% endif %}</button>
+    <p class="text-xs text-muted text-center">O bilhete aparece aqui depois de confirmado.</p>
+  </form>
+{% endif %}

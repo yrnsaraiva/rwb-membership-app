@@ -6,6 +6,8 @@ from django.db import models
 from django.urls import reverse
 from django.utils import timezone
 
+from .phone import normalize_phone
+
 
 class UserManager(BaseUserManager):
     use_in_migrations = True
@@ -44,6 +46,8 @@ class User(AbstractUser):
     email = models.EmailField("email", unique=True)
     member_number = models.CharField("número de sócio", max_length=20, unique=True, null=True, blank=True, editable=False)
     phone = models.CharField("telemóvel", max_length=20, blank=True)
+    phone_e164 = models.CharField("telemóvel (258…)", max_length=12, blank=True, db_index=True, editable=False,
+                                  help_text="Normalizado para cruzar com os bilhetes da ETK.")
     city = models.CharField("cidade", max_length=80, blank=True, default="Maputo")
     date_of_birth = models.DateField("data de nascimento", null=True, blank=True)
     bio = models.TextField("sobre mim", blank=True, max_length=500)
@@ -67,6 +71,7 @@ class User(AbstractUser):
     def save(self, *args, **kwargs):
         if self.email:
             self.email = self.email.lower()
+        self.phone_e164 = normalize_phone(self.phone)
         super().save(*args, **kwargs)
         if not self.member_number:
             # Número sequencial legível, derivado da chave primária: RWB-00042

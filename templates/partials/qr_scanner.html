@@ -1,9 +1,9 @@
 {% load static %}
 {% comment %}Leitor de QR em ecrã inteiro (staff). A câmara só é pedida quando se toca em «Ler QR»; a biblioteca jsQR só é descarregada se o navegador não tiver BarcodeDetector.{% endcomment %}
-<div class="scanner" data-scanner data-jsqr="{% static 'js/vendor/jsQR.min.js' %}" hidden role="dialog" aria-modal="true" aria-label="Ler QR do cartão">
+<div class="scanner" data-scanner data-jsqr="{% static 'js/vendor/jsQR.min.js' %}" hidden role="dialog" aria-modal="true" aria-label="Ler QR do cartão ou do bilhete">
   <video playsinline muted autoplay></video>
   <div class="scanner-top">
-    <p class="font-display text-lg font-semibold uppercase">Ler cartão de membro</p>
+    <p class="font-display text-lg font-semibold uppercase">Ler cartão ou bilhete</p>
     <button type="button" class="scanner-close" data-scanner-close aria-label="Fechar">{% include "icons/x.svg" with cls="w-6 h-6" %}</button>
   </div>
   <div class="scanner-frame" aria-hidden="true"><i></i><i></i><i></i><i></i></div>

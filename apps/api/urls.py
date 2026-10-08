@@ -26,6 +26,7 @@ urlpatterns = [
     path("me/push/", views_account.PushSubscriptionView.as_view(), name="push_subscription"),
     path("staff/cards/<uuid:token>/", views_staff.MemberCardView.as_view(), name="staff_card"),
     path("staff/registrations/<int:pk>/checkin/", views_staff.CheckInView.as_view(), name="staff_checkin"),
+    path("staff/tickets/check-in/", views_staff.TicketCheckInView.as_view(), name="staff_ticket_checkin"),
     path("shop/config/", views_shop.ShopConfigView.as_view(), name="shop_config"),
     path("premium/plans/", views_shop.PlanListView.as_view(), name="plans"),
     path("premium/", views_shop.PremiumView.as_view(), name="premium"),

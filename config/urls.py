@@ -3,6 +3,8 @@ from django.contrib import admin
 from django.urls import include, path, re_path
 from django.views.static import serve
 
+from apps.events.webhooks import etk_webhook
+
 admin.site.index_title = "Gestão do clube"
 
 urlpatterns = [
@@ -15,6 +17,7 @@ urlpatterns = [
     path("loja/", include("apps.shop.urls")),
     path("painel/", include("apps.panel.urls")),
     path("api/v1/", include("apps.api.urls")),
+    path("webhooks/etk/", etk_webhook, name="etk_webhook"),
     path("django-admin/", admin.site.urls),
 ]
 

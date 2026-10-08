@@ -339,3 +339,7 @@ body.scanner-open { overflow: hidden; }
 .offline-banner { display: flex; align-items: center; justify-content: center; gap: .5rem; padding: .45rem 1rem; font-size: .8rem;
   background: var(--surface-2); color: var(--muted); border-bottom: 1px solid var(--line); }
 .offline-banner[hidden] { display: none; }
+.scanner-msg { white-space: pre-line; }
+.scanner-msg.is-ok { background: #0a5c2bf2; }
+.scanner-msg.is-warn { background: #8a5a00f2; }
+.scanner-msg.is-bad { background: #8b1a1af2; }
