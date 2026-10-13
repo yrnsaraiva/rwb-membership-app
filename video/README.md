@@ -9,7 +9,7 @@ npm run build    # gera out/rwb-facts.mp4
 ```
 
 ## Fotos
-Substituir `public/photos/01.jpg … 08.jpg` por fotos reais (vertical 9:16 ideal, >=1080x1920).
+Fotos em `public/photos/01…08.jpg` (já com as fotos reais do clube). Ordem: 01 abertura, 02–07 factos, 08 fecho.
 `01.jpg` é o fundo da pergunta inicial; `08.jpg` o fundo do fecho; 02–07 são os 6 factos. Fotos do álbum Coffee Party:
 https://coresvivasclientesmoz.pixieset.com/runwithbrotocoffeparty/
 

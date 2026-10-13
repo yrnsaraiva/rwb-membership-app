@@ -21,14 +21,14 @@ const BRAND = "#fabb00";
 const INK = "#0b0b0b";
 const clamp = {extrapolateLeft: "clamp", extrapolateRight: "clamp"} as const;
 
-const Photo: React.FC<{src: string; dark?: number; len: number; dir?: 1 | -1}> = ({src, dark = 0.45, len, dir = 1}) => {
+const Photo: React.FC<{src: string; dark?: number; len: number; dir?: 1 | -1; pos?: string}> = ({src, dark = 0.45, len, dir = 1, pos = "50% 50%"}) => {
   const f = useCurrentFrame();
   const scale = interpolate(f, [0, len], dir === 1 ? [1.08, 1.24] : [1.24, 1.08], clamp);
   const x = interpolate(f, [0, len], [0, -40 * dir], clamp);
   return (
     <AbsoluteFill style={{background: INK}}>
       <AbsoluteFill style={{transform: `translateX(${x}px) scale(${scale})`}}>
-        <Img src={staticFile(src)} style={{width: "100%", height: "100%", objectFit: "cover"}} />
+        <Img src={staticFile(src)} style={{width: "100%", height: "100%", objectFit: "cover", objectPosition: pos}} />
       </AbsoluteFill>
       <AbsoluteFill style={{background: `linear-gradient(180deg, rgba(11,11,11,${dark}) 0%, rgba(11,11,11,${dark * 0.4}) 40%, rgba(11,11,11,${dark + 0.4}) 100%)`}} />
     </AbsoluteFill>
@@ -81,7 +81,7 @@ const Intro: React.FC = () => {
   };
   return (
     <AbsoluteFill style={{opacity: fadeOut}}>
-      <Photo src="photos/01.jpg" len={INTRO} dark={0.35} />
+      <Photo src="photos/01.jpg" len={INTRO} dark={0.55} />
       <Rain />
       <div style={{position: "absolute", left: 60, right: 60, top: 190, transform: `translateY(${(1 - enter) * -120}px) scale(${0.92 + enter * 0.08})`, opacity: enter}}>
         <div style={{background: "rgba(11,11,11,0.94)", borderRadius: 80, padding: "64px 64px 52px", boxShadow: `0 0 0 3px rgba(255,255,255,0.18), 0 0 90px rgba(250,187,0,${pressed ? 0.15 : 0.35})`, minHeight: 440, position: "relative"}}>
@@ -113,7 +113,7 @@ const FactScene: React.FC<{i: number}> = ({i}) => {
   const body = interpolate(f, [34, 52], [0, 1], clamp);
   return (
     <AbsoluteFill style={{opacity: fadeIn * fadeOut}}>
-      <Photo src={fact.photo} len={FACT_LEN} dir={i % 2 === 0 ? 1 : -1} dark={0.3} />
+      <Photo src={fact.photo} len={FACT_LEN} dir={i % 2 === 0 ? 1 : -1} dark={0.4} pos={fact.pos} />
       <AbsoluteFill style={{justifyContent: "flex-end", padding: "0 70px 230px"}}>
         <div style={{display: "inline-flex", alignSelf: "flex-start", background: BRAND, color: INK, fontFamily: OSWALD, fontWeight: 700, fontSize: 44, letterSpacing: 6, padding: "10px 28px", borderRadius: 10, opacity: kick, transform: `translateY(${(1 - kick) * 30}px)`}}>
           {fact.kicker}
