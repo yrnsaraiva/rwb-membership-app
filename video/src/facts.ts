@@ -4,7 +4,7 @@ export const PROMPT = "Gemini, diz-me os factos mais interessantes sobre o RUNWI
 export type Fact = { kicker: string; title: string; body: string; photo: string; pos?: string };
 
 export const FACTS: Fact[] = [
-  {kicker: "FACTO 01", title: "Nasceu em\nMaputo.\nChegou à Matola.", body: "Da capital ao Parque dos Poetas: a comunidade cresceu e levou a corrida a novas ruas.", photo: "photos/02.jpg", pos: "68% 50%"},
+  {kicker: "FACTO 01", title: "Nasceu em\nMaputo.\nChegou à Matola.", body: "Da capital ao Parque dos Poetas: a comunidade cresceu e levou a corrida a novas ruas.", photo: "photos/02.jpg", pos: "52% 50%"},
   {kicker: "FACTO 02", title: "Ninguém fica\npara trás.", body: "We run together. We grow together. A consistência vence a motivação. E a rua é para todos.", photo: "photos/03.jpg"},
   {kicker: "FACTO 03", title: "Mais de 2 500\nmembros activos.", body: "Eventos chegam a ter mais de 1 000 inscrições numa única semana.", photo: "photos/04.jpg"},
   {kicker: "FACTO 04", title: "Setembro Amarelo:\n+1 000 a correr.", body: "Uma corrida pela saúde mental. Depois vieram o Outubro Rosa, o Novembro Azul e o Dezembro Vermelho.", photo: "photos/05.jpg"},
